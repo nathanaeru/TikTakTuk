@@ -46,7 +46,7 @@ Requirement: Python versi 3.12+
     pip install -r requirements.txt
     ```
 
-5. Copy file `.env.example` menjadi `.env` dan isi dengan konfigurasi yang sesuai (seperti database credentials dan secret key).
+5. Copy file `.env.example` menjadi `.env` dan isi dengan konfigurasi yang sesuai (seperti database credentials dan secret key). Untuk secret key merupakan string 50 karakter random, dapat di-generate dari [sini](https://djecrety.ir/).
 
 6. Migrasi database:
 
