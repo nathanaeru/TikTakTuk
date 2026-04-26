@@ -1,6 +1,7 @@
 from django.shortcuts import render, redirect
 from django.db import connection
 from django.contrib import messages
+import uuid, json
 
 def home_view(request):
     """Halaman utama TikTakTuk"""
@@ -170,3 +171,202 @@ def dashboard_pengguna(request, user_id=None, page='main'):
             })
 
     return render(request, f'dashboard/{role_display}.html', context)
+
+def get_role(user_id):
+    """Fungsi helper untuk mendapatkan role user berdasarkan ID."""
+    if not user_id:
+        return 'guest'
+    with connection.cursor() as cursor:
+        cursor.execute("SET search_path TO tiktaktuk, public")
+        cursor.execute('''
+            SELECT r.role_name 
+            FROM ACCOUNT_ROLE ar
+            JOIN ROLE r ON ar.role_id = r.role_id
+            WHERE ar.user_id = %s
+            LIMIT 1
+        ''', [user_id])
+        res = cursor.fetchone()
+        return res[0].lower() if res else 'guest'
+      
+def ticket_list(request, user_id=None):
+    """
+    Menampilkan list tiket sesuai role dan menyiapkan data modal create.
+    Mendukung tampilan nama dinamis: full_name (Customer), organizer_name (Organizer), 
+    atau username (Admin).
+    """
+    
+    # 1. Identifikasi Role User
+    role = get_role(user_id)
+    user_display_name = "Guest"
+
+    with connection.cursor() as cursor:
+        cursor.execute("SET search_path TO tiktaktuk, public")
+        
+        # 2. Ambil Nama Berdasarkan Role (Penting agar tidak error kolom tidak ditemukan)
+        if user_id:
+            if role == 'customer':
+                cursor.execute('SELECT full_name FROM CUSTOMER WHERE user_id = %s', [user_id])
+                row = cursor.fetchone()
+                user_display_name = row[0] if row else "Pelanggan" # Contoh: Budi Santoso
+            elif role == 'organizer':
+                cursor.execute('SELECT organizer_name FROM ORGANIZER WHERE user_id = %s', [user_id])
+                row = cursor.fetchone()
+                user_display_name = row[0] if row else "Organizer"
+            elif role == 'administrator':
+                cursor.execute('SELECT username FROM USER_ACCOUNT WHERE user_id = %s', [user_id])
+                row = cursor.fetchone()
+                user_display_name = row[0] if row else "Admin"
+
+        # 3. Query Utama untuk List Tiket (Read)
+        query_tickets = '''
+            SELECT 
+                t.ticket_id, t.ticket_code, cust.full_name, e.event_title, 
+                tc.category_name, tc.price, v.venue_name, v.city, e.event_datetime,
+                o.order_id
+            FROM TICKET t
+            JOIN "ORDER" o ON t.torder_id = o.order_id
+            JOIN CUSTOMER cust ON o.customer_id = cust.customer_id
+            JOIN TICKET_CATEGORY tc ON t.tcategory_id = tc.category_id
+            JOIN EVENT e ON tc.tevent_id = e.event_id
+            JOIN VENUE v ON e.venue_id = v.venue_id
+        '''
+        
+        params = []
+        # FILTER ROLE: Customer hanya melihat tiket miliknya
+        if role == 'customer':
+            query_tickets += ' WHERE cust.user_id = %s'
+            params.append(user_id)
+        
+        query_tickets += ' ORDER BY e.event_datetime DESC, t.ticket_code ASC'
+        
+        cursor.execute(query_tickets, params)
+        tickets = cursor.fetchall()
+
+        # 4. Hitung Statistik untuk Dashboard
+        total_tiket = len(tickets)
+        valid_count = total_tiket # Bisa ditambah logic WHERE status='VALID'
+        terpakai_count = 0 
+
+    # 5. Data untuk Modal Create (Hanya untuk Admin/Organizer)
+    orders_json, categories_json, seats_json = [], [], []
+
+    if role in ['administrator', 'organizer']:
+        with connection.cursor() as cursor:
+            cursor.execute("SET search_path TO tiktaktuk, public")
+            
+            # Ambil data Order yang sudah Lunas untuk dropdown
+            cursor.execute('''
+                SELECT DISTINCT o.order_id, cust.full_name, e.event_title, e.event_id
+                FROM "ORDER" o
+                JOIN CUSTOMER cust ON o.customer_id = cust.customer_id
+                JOIN TICKET_CATEGORY tc ON tc.tevent_id = (
+                    SELECT tevent_id FROM TICKET_CATEGORY tc2 
+                    JOIN TICKET t2 ON t2.tcategory_id = tc2.category_id 
+                    WHERE t2.torder_id = o.order_id LIMIT 1
+                )
+                JOIN EVENT e ON tc.tevent_id = e.event_id
+                WHERE o.payment_status = 'LUNAS'
+            ''')
+            orders_json = [
+                {'id': str(o[0]), 'display': f"{o[0]} — {o[1]} — {o[2]}", 'event_id': str(o[3])} 
+                for o in cursor.fetchall()
+            ]
+
+            # Ambil data Kategori Tiket
+            cursor.execute('''
+                SELECT tc.category_id, tc.category_name, tc.price, tc.quota, tc.tevent_id,
+                (SELECT COUNT(*) FROM TICKET WHERE tcategory_id = tc.category_id) as used
+                FROM TICKET_CATEGORY tc
+            ''')
+            categories_json = [{
+                'id': str(c[0]), 'name': c[1], 'price': float(c[2]), 'quota': c[3], 
+                'used': c[5], 'event_id': str(c[4]), 'has_seat': True if "General" not in c[1] else False,
+                'display': f"{c[1]} — Rp {c[2]:,.0f} ({c[5]}/{c[3]})"
+            } for c in cursor.fetchall()]
+
+            cursor.execute('''
+                SELECT seat_id, seat_number, row_number 
+                FROM SEAT 
+                ORDER BY row_number, seat_number
+            ''')
+            seats_json = [
+                {'id': str(s[0]), 'display': f"Baris {s[2]} — Kursi {s[1]}"} 
+                for s in cursor.fetchall()
+            ]
+
+    # 6. Kirim ke Template
+    context = {
+        'tickets': tickets,
+        'total_tiket': total_tiket,
+        'valid_count': valid_count,
+        'terpakai_count': terpakai_count,
+        'orders_data': json.dumps(orders_json),
+        'categories_data': json.dumps(categories_json),
+        'seats_data': json.dumps(seats_json),
+        'user_id': user_id,
+        'user_name': user_display_name,
+        'role': role,
+        'title': "Manajemen Tiket" if role in ['administrator', 'organizer'] else "Tiket Saya"
+    }
+    return render(request, 'ticket/ticket_list.html', context)
+
+def create_ticket(request, user_id):
+    """Proses penyimpanan tiket baru ke database."""
+    if request.method == 'POST':
+        order_id = request.POST.get('order')
+        category_id = request.POST.get('category')
+        seat_id = request.POST.get('seat')
+
+        # Auto-generate kode tiket
+        ticket_code = f"TTK-{uuid.uuid4().hex[:8].upper()}"
+        new_ticket_id = uuid.uuid4()
+
+        try:
+            with connection.cursor() as cursor:
+                cursor.execute("SET search_path TO tiktaktuk, public")
+                # Insert TICKET
+                cursor.execute('''
+                    INSERT INTO TICKET (ticket_id, ticket_code, torder_id, tcategory_id)
+                    VALUES (%s, %s, %s, %s)
+                ''', [new_ticket_id, ticket_code, order_id, category_id])
+
+                # Insert HAS_RELATIONSHIP (jika ada kursi)
+                if seat_id:
+                    cursor.execute('''
+                        INSERT INTO HAS_RELATIONSHIP (ticket_id, seat_id)
+                        VALUES (%s, %s)
+                    ''', [new_ticket_id, seat_id])
+            
+            messages.success(request, f"Tiket {ticket_code} berhasil dibuat!")
+        except Exception as e:
+            messages.error(request, f"Gagal membuat tiket: {e}")
+
+    return redirect('ticket_list', user_id=user_id)
+
+def update_ticket(request, ticket_id):
+    if request.method == 'POST':
+        status = request.POST.get('status')
+        seat_id = request.POST.get('seat') # Bisa None/Kosong
+
+        with connection.cursor() as cursor:
+            cursor.execute("SET search_path TO tiktaktuk, public")
+            # Update status di tabel TICKET (asumsi ada kolom status)
+            # Dan update seat_id (asumsi kolom seat_id ada di TICKET atau tabel relasi)
+            cursor.execute('''
+                UPDATE TICKET 
+                SET status = %s, seat_id = %s 
+                WHERE ticket_id = %s
+            ''', [status, seat_id if seat_id else None, ticket_id])
+            
+    return redirect(request.META.get('HTTP_REFERER', '/'))
+
+def delete_ticket(request, ticket_id):
+    with connection.cursor() as cursor:
+        cursor.execute("SET search_path TO tiktaktuk, public")
+        # 1. Hapus relasi kursi dulu (jika ada tabel HAS_RELATIONSHIP)
+        # cursor.execute('DELETE FROM HAS_RELATIONSHIP WHERE ticket_id = %s', [ticket_id])
+        
+        # 2. Hapus tiket secara permanen
+        cursor.execute('DELETE FROM TICKET WHERE ticket_id = %s', [ticket_id])
+        
+    return redirect(request.META.get('HTTP_REFERER', '/'))
