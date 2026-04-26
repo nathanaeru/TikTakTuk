@@ -36,19 +36,18 @@
           <div class="bg-primary text-white p-1.5 rounded text-sm font-bold">TT</div>
           <span class="text-xl font-bold text-white tracking-wide">TikTakTuk</span>
         </a>
-
-        <div class="hidden md:flex gap-6 text-sm font-medium text-gray-400">
-          <a href="#" class="hover:text-white transition-colors">Jelajahi Acara</a>
-          <a href="#" class="hover:text-white transition-colors">Promosi</a>
-          <a href="#" class="hover:text-white transition-colors">Artis</a>
-          <a href="#" class="hover:text-white transition-colors">Venue</a>
-        </div>
       </div>
-
-      <div class="flex items-center gap-4">
-        <a href="#" class="text-sm font-medium text-gray-300 hover:text-white transition-colors">Login</a>
-        <a href="#" class="bg-primary hover:bg-primaryHover text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors">Daftar</a>
-      </div>
+      {% if user.is_authenticated %}
+        {% if user.role == 'admin' %}
+          {% include 'navbar/admin.html' %}
+        {% elif user.role == 'organizer' %}
+          {% include 'navbar/organizer.html' %}
+        {% elif user.role == 'customer' %}
+          {% include 'navbar/customer.html' %}
+        {% endif %}
+      {% else %}
+        {% include 'navbar/guest.html' %}
+      {% endif %}
     </nav>
 
     <main class="flex-grow">
