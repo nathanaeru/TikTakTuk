@@ -1,0 +1,214 @@
+{% extends 'base.html' %}
+
+{% block title %}
+  Manajemen Venue - TikTakTuk
+{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto px-8 py-10">
+  <div class="flex justify-between items-center mb-8">
+    <div>
+      <h1 class="text-3xl font-bold text-white">Manajemen Venue</h1>
+      <p class="text-gray-400 mt-1">Kelola data venue untuk acara TikTakTuk.</p>
+    </div>
+
+    <button onclick="openVenueModal('Tambah Venue Baru', 'Tambah')"
+      class="bg-primary hover:bg-primaryHover text-white px-4 py-2 rounded-lg text-sm font-medium">
+      + Tambah Venue
+    </button>
+  </div>
+
+  <div class="grid grid-cols-1 md:grid-cols-3 gap-5 mb-6">
+  <div class="bg-dark-card border border-dark-border rounded-xl p-6">
+    <p class="text-xs font-bold text-gray-400 uppercase">Total Venue</p>
+    <h2 class="text-3xl font-bold text-white mt-2">3</h2>
+  </div>
+
+  <div class="bg-dark-card border border-dark-border rounded-xl p-6">
+    <p class="text-xs font-bold text-gray-400 uppercase">Reserved Seating</p>
+    <h2 class="text-3xl font-bold text-white mt-2">2</h2>
+  </div>
+
+  <div class="bg-dark-card border border-dark-border rounded-xl p-6">
+    <p class="text-xs font-bold text-gray-400 uppercase">Total Kapasitas</p>
+    <h2 class="text-3xl font-bold text-white mt-2">2,300</h2>
+  </div>
+</div>
+
+<div class="flex flex-col md:flex-row gap-4 mb-6">
+  <div class="flex-1">
+    <input
+      type="text"
+      placeholder="Cari nama atau alamat..."
+      class="w-full bg-dark-card border border-dark-border rounded-xl px-4 py-3 text-sm text-white placeholder-gray-500"
+    />
+  </div>
+
+  <select class="bg-dark-card border border-dark-border rounded-xl px-4 py-3 text-sm text-white">
+    <option>Semua Kota</option>
+    <option>Jakarta</option>
+    <option>Bandung</option>
+  </select>
+
+  <select class="bg-dark-card border border-dark-border rounded-xl px-4 py-3 text-sm text-white">
+    <option>Semua Tipe Seating</option>
+    <option>Reserved Seating</option>
+    <option>Free Seating</option>
+  </select>
+</div>
+
+  <div class="bg-dark-card border border-dark-border rounded-xl overflow-hidden">
+    <table class="w-full text-sm">
+      <thead class="bg-slate-800 text-gray-300">
+        <tr>
+          <th class="text-left px-6 py-4">Nama Venue</th>
+          <th class="text-left px-6 py-4">Kota</th>
+          <th class="text-left px-6 py-4">Kapasitas</th>
+          <th class="text-left px-6 py-4">Reserved Seating</th>
+          <th class="text-right px-6 py-4">Aksi</th>
+        </tr>
+      </thead>
+
+      <tbody class="divide-y divide-dark-border">
+        {% for venue in venues %}
+        <tr class="hover:bg-slate-800/50">
+          <td class="px-6 py-4">
+            <p class="font-semibold text-white">{{ venue.name }}</p>
+            <p class="text-gray-400 text-xs">{{ venue.address }}</p>
+          </td>
+
+          <td class="px-6 py-4 text-gray-300">
+            {{ venue.city }}
+          </td>
+
+          <td class="px-6 py-4 text-gray-300">
+            {{ venue.capacity }}
+          </td>
+
+          <td class="px-6 py-4">
+            {% if venue.has_reserved_seating %}
+              <span class="bg-blue-500/20 text-blue-300 px-3 py-1 rounded-full text-xs">
+                Ya
+              </span>
+            {% else %}
+              <span class="bg-gray-600/40 text-gray-300 px-3 py-1 rounded-full text-xs">
+                Tidak
+              </span>
+            {% endif %}
+          </td>
+
+          <td class="px-6 py-4 text-right">
+            <button onclick="openVenueModal('Edit Venue', 'Simpan')"
+              class="bg-yellow-500 hover:bg-yellow-600 text-white px-3 py-1 rounded text-xs mr-2">
+              Edit
+            </button>
+
+            <button onclick="openDeleteModal()"
+              class="bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded text-xs">
+              Hapus
+            </button>
+          </td>
+        </tr>
+        {% empty %}
+        <tr>
+          <td colspan="5" class="px-6 py-8 text-center text-gray-400">
+            Belum ada data venue.
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Modal Create / Update -->
+<div id="venueModal" class="hidden fixed inset-0 bg-black/60 z-50 flex items-center justify-center">
+  <div class="bg-white text-gray-900 rounded-2xl w-full max-w-lg p-6">
+    <div class="flex justify-between items-center mb-5">
+      <h2 id="venueModalTitle" class="text-xl font-bold">Tambah Venue Baru</h2>
+      <button onclick="closeVenueModal()" class="text-gray-500 hover:text-gray-800">✕</button>
+    </div>
+
+    <form class="space-y-4">
+      <div>
+        <label class="block text-sm font-semibold mb-1">Nama Venue</label>
+        <input type="text" class="w-full border rounded-lg px-3 py-2" placeholder="Masukkan nama venue">
+      </div>
+
+      <div>
+        <label class="block text-sm font-semibold mb-1">Alamat</label>
+        <textarea class="w-full border rounded-lg px-3 py-2" rows="3" placeholder="Masukkan alamat venue"></textarea>
+      </div>
+
+      <div class="grid grid-cols-2 gap-4">
+        <div>
+          <label class="block text-sm font-semibold mb-1">Kota</label>
+          <input type="text" class="w-full border rounded-lg px-3 py-2" placeholder="Jakarta">
+        </div>
+
+        <div>
+          <label class="block text-sm font-semibold mb-1">Kapasitas</label>
+          <input type="number" class="w-full border rounded-lg px-3 py-2" placeholder="1000">
+        </div>
+      </div>
+
+      <label class="flex items-center gap-2 text-sm">
+        <input type="checkbox">
+        <span>Has Reserved Seating</span>
+      </label>
+
+      <div class="grid grid-cols-2 gap-3 pt-3">
+        <button type="button" onclick="closeVenueModal()"
+          class="border rounded-lg py-2">
+          Batal
+        </button>
+
+        <button id="venueSubmitBtn" type="submit"
+          class="bg-primary text-white rounded-lg py-2">
+          Tambah
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Modal Delete -->
+<div id="deleteModal" class="hidden fixed inset-0 bg-black/60 z-50 flex items-center justify-center">
+  <div class="bg-white text-gray-900 rounded-2xl w-full max-w-md p-6">
+    <h2 class="text-xl font-bold text-red-600 mb-2">Hapus Venue</h2>
+    <p class="text-gray-600 mb-6">
+      Apakah Anda yakin ingin menghapus venue ini?
+    </p>
+
+    <div class="flex justify-end gap-3">
+      <button onclick="closeDeleteModal()" class="border px-4 py-2 rounded-lg">
+        Batal
+      </button>
+
+      <button class="bg-red-600 text-white px-4 py-2 rounded-lg">
+        Hapus
+      </button>
+    </div>
+  </div>
+</div>
+
+<script>
+  function openVenueModal(title, buttonText) {
+    document.getElementById("venueModalTitle").innerText = title;
+    document.getElementById("venueSubmitBtn").innerText = buttonText;
+    document.getElementById("venueModal").classList.remove("hidden");
+  }
+
+  function closeVenueModal() {
+    document.getElementById("venueModal").classList.add("hidden");
+  }
+
+  function openDeleteModal() {
+    document.getElementById("deleteModal").classList.remove("hidden");
+  }
+
+  function closeDeleteModal() {
+    document.getElementById("deleteModal").classList.add("hidden");
+  }
+</script>
+{% endblock %}
