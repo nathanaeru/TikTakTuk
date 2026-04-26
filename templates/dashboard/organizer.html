@@ -1,0 +1,71 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto px-8 py-10">
+    <div class="bg-[#2D3748] rounded-2xl p-10 mb-10 flex justify-between items-center shadow-2xl border border-slate-700">
+        <div>
+            <p class="text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">Dashboard Penyelenggara</p>
+            <h1 class="text-5xl font-extrabold text-white mb-3">{{ nama }}</h1>
+            <p class="text-slate-400 text-lg">Kelola {{ acara_aktif }} acara aktif Anda</p>
+        </div>
+        <div class="flex gap-4">
+            <button class="bg-white text-[#2D3748] px-8 py-3 rounded-full font-bold hover:bg-slate-100 transition-all">
+                Kelola Acara
+            </button>
+            <button class="bg-slate-700 text-white px-8 py-3 rounded-full font-bold border border-slate-600 hover:bg-slate-600 transition-all">
+                Venue
+            </button>
+        </div>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-10">
+        <div class="bg-slate-800/40 backdrop-blur-md p-6 rounded-3xl border border-slate-700">
+            <p class="text-[10px] font-bold text-slate-400 uppercase mb-1">Acara Aktif</p>
+            <h2 class="text-3xl font-black text-white">{{ acara_aktif }}</h2>
+            <p class="text-xs text-slate-400">Dalam koordinasi</p>
+        </div>
+
+        <div class="bg-slate-800/40 backdrop-blur-md p-6 rounded-3xl border border-slate-700">
+            <p class="text-[10px] font-bold text-slate-400 uppercase mb-1">Tiket Terjual</p>
+            <h2 class="text-3xl font-black text-white">{{ tiket_terjual }}</h2>
+            <p class="text-xs text-slate-400">Total terjual</p>
+        </div>
+
+        <div class="bg-slate-800/40 backdrop-blur-md p-6 rounded-3xl border border-slate-700">
+            <p class="text-[10px] font-bold text-slate-400 uppercase mb-1">Revenue</p>
+            <h2 class="text-3xl font-black text-white">Rp {{ revenue }}</h2>
+            <p class="text-xs text-slate-400">Bulan ini</p>
+        </div>
+
+        <div class="bg-slate-800/40 backdrop-blur-md p-6 rounded-3xl border border-slate-700">
+            <p class="text-[10px] font-bold text-slate-400 uppercase mb-1">Venue Mitra</p>
+            <h2 class="text-3xl font-black text-white">{{ venue_mitra }}</h2>
+            <p class="text-xs text-slate-400">Lokasi aktif</p>
+        </div>
+    </div>
+
+    <div class="bg-slate-800/40 backdrop-blur-md p-8 rounded-[2rem] border border-slate-700 shadow-xl">
+        <div class="flex justify-between items-center mb-8">
+            <h3 class="text-xl font-extrabold text-white tracking-tight">Performa Acara</h3>
+            <a href="#" class="text-blue-400 text-sm font-bold">Lihat Semua</a>
+        </div>
+        
+        <div class="space-y-4">
+            {% for acara in list_acara %}
+            <div class="flex justify-between items-center p-4 bg-slate-700/30 rounded-2xl hover:bg-slate-700/50 transition-all cursor-pointer">
+                <div class="flex items-center gap-4">
+                    <div class="w-12 h-12 bg-green-500/20 rounded-xl flex items-center justify-center text-green-400 font-bold">LIVE</div>
+                    <div>
+                        <h4 class="text-white font-bold">{{ acara.0 }}</h4>
+                        <p class="text-xs text-slate-400">{{ acara.1|date:"d M Y" }} • Jakarta Convention Center</p>
+                    </div>
+                </div>
+                <span class="text-slate-500">→</span>
+            </div>
+            {% empty %}
+            <p class="text-slate-500 text-center py-10 italic">Belum ada data acara.</p>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+{% endblock %}
