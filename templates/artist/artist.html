@@ -11,7 +11,7 @@
         <h1 class="text-3xl font-bold text-white mb-2">Daftar Artis</h1>
         <p class="text-gray-400">Kelola artis yang ada di platform TikTakTuk</p>
       </div>
-      <button class="bg-primary hover:bg-primaryHover text-white font-medium px-5 py-2.5 rounded-lg transition-colors flex items-center gap-2"><span>+</span> Tambah Artis</button>
+      <button id="btnOpenAddModal" class="bg-primary hover:bg-primaryHover text-white font-medium px-5 py-2.5 rounded-lg transition-colors flex items-center gap-2"><span>+</span> Tambah Artis</button>
     </div>
 
     <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
@@ -44,8 +44,8 @@
                 <span class="text-green-400 bg-green-400/10 px-2 py-1 rounded text-xs">Indie Folk</span>
               </td>
               <td class="px-6 py-4 text-right space-x-3">
-                <button class="text-gray-400 hover:text-white transition-colors">Edit</button>
-                <button class="text-red-500 hover:text-red-400 transition-colors">Hapus</button>
+                <button class="btn-edit text-gray-400 hover:text-white transition-colors">Edit</button>
+                <button class="btn-delete text-red-500 hover:text-red-400 transition-colors">Hapus</button>
               </td>
             </tr>
             <tr class="hover:bg-dark-bg/50 transition-colors">
@@ -56,8 +56,8 @@
                 <span class="text-blue-400 bg-blue-400/10 px-2 py-1 rounded text-xs">Indie Pop</span>
               </td>
               <td class="px-6 py-4 text-right space-x-3">
-                <button class="text-gray-400 hover:text-white transition-colors">Edit</button>
-                <button class="text-red-500 hover:text-red-400 transition-colors">Hapus</button>
+                <button class="btn-edit text-gray-400 hover:text-white transition-colors">Edit</button>
+                <button class="btn-delete text-red-500 hover:text-red-400 transition-colors">Hapus</button>
               </td>
             </tr>
           </tbody>
@@ -66,11 +66,11 @@
     </div>
   </div>
 
-  <div class="hidden fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
+  <div id="addModal" class="hidden fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
     <div class="bg-dark-card border border-dark-border rounded-2xl w-full max-w-md p-6 shadow-2xl">
       <div class="flex justify-between items-center mb-6">
         <h2 class="text-xl font-bold text-white">Tambah Artis Baru</h2>
-        <button class="text-gray-400 hover:text-white">✕</button>
+        <button type="button" class="close-add text-gray-400 hover:text-white text-xl font-bold">✕</button>
       </div>
       <form class="space-y-4">
         <div>
@@ -82,10 +82,75 @@
           <input type="text" name="genre" placeholder="cth. Indie Folk" class="w-full bg-dark-bg border border-dark-border rounded-lg px-4 py-2 text-gray-200 focus:border-primary focus:outline-none" />
         </div>
         <div class="flex gap-3 pt-4">
-          <button type="button" class="flex-1 bg-dark-bg border border-dark-border text-gray-300 hover:text-white py-2.5 rounded-lg transition-colors">Batal</button>
-          <button type="submit" class="flex-1 bg-primary hover:bg-primaryHover text-white font-medium py-2.5 rounded-lg transition-colors">Tambah Artis</button>
+          <button type="button" class="close-add flex-1 bg-dark-bg border border-dark-border text-gray-300 hover:text-white py-2.5 rounded-lg transition-colors">Batal</button>
+          <button type="submit" class="flex-1 bg-primary hover:bg-primaryHover text-white font-medium py-2.5 rounded-lg transition-colors">Simpan</button>
         </div>
       </form>
     </div>
   </div>
+
+  <div id="editModal" class="hidden fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-dark-card border border-dark-border rounded-2xl w-full max-w-md p-6 shadow-2xl">
+      <div class="flex justify-between items-center mb-6">
+        <h2 class="text-xl font-bold text-white">Edit Artis</h2>
+        <button type="button" class="close-edit text-gray-400 hover:text-white text-xl font-bold">✕</button>
+      </div>
+      <form class="space-y-4">
+        <div>
+          <label class="block text-xs font-medium text-gray-400 mb-1">NAMA ARTIS *</label>
+          <input type="text" name="name" value="Fourtwnty" class="w-full bg-dark-bg border border-dark-border rounded-lg px-4 py-2 text-gray-200 focus:border-primary focus:outline-none" />
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-gray-400 mb-1">GENRE</label>
+          <input type="text" name="genre" value="Indie Folk" class="w-full bg-dark-bg border border-dark-border rounded-lg px-4 py-2 text-gray-200 focus:border-primary focus:outline-none" />
+        </div>
+        <div class="flex gap-3 pt-4">
+          <button type="button" class="close-edit flex-1 bg-dark-bg border border-dark-border text-gray-300 hover:text-white py-2.5 rounded-lg transition-colors">Batal</button>
+          <button type="submit" class="flex-1 bg-primary hover:bg-primaryHover text-white font-medium py-2.5 rounded-lg transition-colors">Perbarui</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div id="deleteModal" class="hidden fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-dark-card border border-dark-border rounded-2xl w-full max-w-sm p-6 shadow-2xl text-center">
+      <div class="w-16 h-16 rounded-full bg-red-500/20 text-red-500 flex items-center justify-center mx-auto mb-4 text-3xl">!</div>
+      <h2 class="text-xl font-bold text-white mb-2">Hapus Artis?</h2>
+      <p class="text-sm text-gray-400 mb-6">Tindakan ini tidak dapat dibatalkan. Artis akan dihapus dari sistem.</p>
+      <div class="flex gap-3">
+        <button type="button" class="close-delete flex-1 bg-dark-bg border border-dark-border text-gray-300 hover:text-white py-2.5 rounded-lg transition-colors">Batal</button>
+        <button type="button" class="flex-1 bg-red-600 hover:bg-red-700 text-white font-medium py-2.5 rounded-lg transition-colors">Ya, Hapus</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', function () {
+      // Setup Modal Tambah
+      const addModal = document.getElementById('addModal')
+      document.getElementById('btnOpenAddModal').addEventListener('click', () => addModal.classList.remove('hidden'))
+      document.querySelectorAll('.close-add').forEach((btn) => btn.addEventListener('click', () => addModal.classList.add('hidden')))
+    
+      // Setup Modal Edit
+      const editModal = document.getElementById('editModal')
+      document.querySelectorAll('.btn-edit').forEach((btn) => {
+        btn.addEventListener('click', () => editModal.classList.remove('hidden'))
+      })
+      document.querySelectorAll('.close-edit').forEach((btn) => btn.addEventListener('click', () => editModal.classList.add('hidden')))
+    
+      // Setup Modal Hapus
+      const deleteModal = document.getElementById('deleteModal')
+      document.querySelectorAll('.btn-delete').forEach((btn) => {
+        btn.addEventListener('click', () => deleteModal.classList.remove('hidden'))
+      })
+      document.querySelectorAll('.close-delete').forEach((btn) => btn.addEventListener('click', () => deleteModal.classList.add('hidden')))
+    
+      // Tutup jika klik area luar
+      ;[addModal, editModal, deleteModal].forEach((modal) => {
+        modal.addEventListener('click', function (event) {
+          if (event.target === modal) modal.classList.add('hidden')
+        })
+      })
+    })
+  </script>
 {% endblock %}
