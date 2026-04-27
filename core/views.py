@@ -9,6 +9,16 @@ def home_view(request):
     return redirect("dashboard_guest")
 
 
+def artist_list_view(request):
+    # Mengarah ke templates/artist/artist.html
+    return render(request, "artist/artist.html")
+
+
+def ticket_category_list_view(request):
+    # Mengarah ke templates/ticket/ticket-category.html sesuai nama file Anda
+    return render(request, "ticket/ticket-category.html")
+
+
 def dashboard_pengguna(request, user_id=None, page="main"):
     # USER GUEST
     if user_id is None:

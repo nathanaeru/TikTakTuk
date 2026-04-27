@@ -9,7 +9,7 @@
 
 <div class="flex items-center gap-4">
   <a href="#" class="text-sm text-gray-300 hover:text-white">Profile</a>
-  <a href="#" class="bg-red-500 hover:bg-red-600 text-white text-sm px-4 py-2 rounded-lg">
-    Logout
-  </a>
+  <a href="{% url 'artist_list' %}" class="hover:text-white transition-colors">Artis</a>
+  <a href="{% url 'ticket_category_list' %}" class="hover:text-white transition-colors">Kategori Tiket</a>
+  <a href="#" class="bg-red-500 hover:bg-red-600 text-white text-sm px-4 py-2 rounded-lg">Logout</a>
 </div>

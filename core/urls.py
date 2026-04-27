@@ -43,4 +43,10 @@ urlpatterns = [
         name="dashboard_page",
     ),
     path("ticket/", views.ticket_list, name="ticket_list_no_id"),
+    path("artists/", views.artist_list_view, name="artist_list"),
+    path(
+        "ticket-categories/",
+        views.ticket_category_list_view,
+        name="ticket_category_list",
+    ),
 ]
