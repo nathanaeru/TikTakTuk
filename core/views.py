@@ -9,6 +9,19 @@ def home_view(request):
     return redirect("dashboard_guest")
 
 
+def login_view(request):
+    return render(request, "auth/login.html")
+
+
+def register_view(request):
+    return render(request, "auth/register.html")
+
+
+def logout_view(request):
+    # Karena belum ada backend, logout sekadar mengarahkan (redirect) kembali ke form login
+    return redirect("login")
+
+
 def dashboard_pengguna(request, user_id=None, page="main"):
     # USER GUEST
     if user_id is None:
