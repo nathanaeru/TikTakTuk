@@ -12,7 +12,7 @@
         <p class="text-sm text-gray-400">Buat akun baru untuk memulai pengalaman Anda</p>
       </div>
 
-      <form action="{% url 'login' %}" method="GET" class="space-y-5">
+      <form action="{% url 'auth:login' %}" method="GET" class="space-y-5">
         <div class="mb-6">
           <label class="block text-sm font-medium text-gray-300 mb-3">Daftar Sebagai:</label>
           <div class="grid grid-cols-2 gap-4">
@@ -67,7 +67,7 @@
       </form>
 
       <div class="mt-6 text-center text-sm text-gray-400">
-        Sudah punya akun? <a href="{% url 'login' %}" class="text-primary hover:text-blue-400 font-medium transition-colors">Login di sini</a>
+        Sudah punya akun? <a href="{% url 'auth:login' %}" class="text-primary hover:text-blue-400 font-medium transition-colors">Login di sini</a>
       </div>
     </div>
   </div>
