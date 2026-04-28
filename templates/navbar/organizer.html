@@ -1,15 +1,15 @@
 <div class="hidden md:flex gap-6 text-sm font-medium text-gray-400">
-  <a href="{% url 'dashboard_user' user_id=user_id %}" class="hover:text-white">Dashboard</a>
-  <a href="{% url 'dashboard_page' user_id=user_id page='events' %}" class="hover:text-white">Event Saya</a>
-  <a href="{% url 'dashboard_page' user_id=user_id page='venues' %}" class="hover:text-white">Manajemen Venue</a>
-  <a href="{% url 'seat_management' user_id=user_id %}" class="hover:text-white">Manajemen Kursi</a>
+  <a href="{% url 'dashboard' %}" class="hover:text-white">Dashboard</a>
+  <a href="{% url 'dashboard_page' page='events' %}" class="hover:text-white">Event Saya</a>
+  <a href="{% url 'dashboard_page' page='venues' %}" class="hover:text-white">Manajemen Venue</a>
+  <a href="{% url 'seat_management' %}" class="hover:text-white">Manajemen Kursi</a>
   <a href="{% url 'ticket_category_list' %}" class="hover:text-white">Kategori Tiket</a>
   <a href="{% url 'ticket_list' %}" class="hover:text-white">Manajemen Tiket</a>
-  <a href="{% url 'dashboard_page' user_id=user_id page='orders' %}" class="hover:text-white">Semua Order</a>
+  <a href="{% url 'dashboard_page' page='orders' %}" class="hover:text-white">Semua Order</a>
 </div>
 
 <div class="flex items-center gap-4">
-  <a href="{% url 'dashboard_page' user_id=user_id page='profile' %}" class="text-sm text-gray-300 hover:text-white">Profile</a>
+  <a href="{% url 'dashboard_page' page='profile' %}" class="text-sm text-gray-300 hover:text-white">Profile</a>
   <a href="{% url 'ticket_category_list' %}" class="hover:text-white transition-colors">Kategori Tiket</a>
   <a href="{% url 'auth:logout' %}" class="bg-red-500 hover:bg-red-600 text-white text-sm px-4 py-2 rounded-lg">Logout</a>
 </div>

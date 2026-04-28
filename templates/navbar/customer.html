@@ -1,14 +1,14 @@
 <div class="hidden md:flex gap-6 text-sm font-medium text-gray-400">
-  <a href="{% url 'dashboard_user' user_id=user_id %}" class="hover:text-white">Dashboard</a>
+  <a href="{% url 'dashboard' %}" class="hover:text-white">Dashboard</a>
   <a href="{% url 'ticket_list' %}" class="hover:text-white">Tiket Saya</a>
-  <a href="{% url 'dashboard_page' user_id=user_id page='orders' %}" class="hover:text-white">Pesanan</a>
+  <a href="{% url 'dashboard_page' page='orders' %}" class="hover:text-white">Pesanan</a>
   <a href="{% url 'artist_list' %}" class="hover:text-white">Cari Event</a>
-  <a href="{% url 'dashboard_page' user_id=user_id page='promo' %}" class="hover:text-white">Promosi</a>
-  <a href="{% url 'dashboard_page' user_id=user_id page='venue' %}" class="hover:text-white">Venue</a>
+  <a href="{% url 'dashboard_page' page='promo' %}" class="hover:text-white">Promosi</a>
+  <a href="{% url 'dashboard_page' page='venue' %}" class="hover:text-white">Venue</a>
   <a href="{% url 'artist_list' %}" class="hover:text-white">Artis</a>
 </div>
 
 <div class="flex items-center gap-4">
-  <a href="{% url 'dashboard_page' user_id=user_id page='profile' %}" class="text-sm text-gray-300 hover:text-white">Profile</a>
+  <a href="{% url 'dashboard_page' page='profile' %}" class="text-sm text-gray-300 hover:text-white">Profile</a>
   <a href="{% url 'auth:logout' %}" class="text-sm font-medium text-red-400 hover:text-red-300 transition-colors">Logout</a>
 </div>
