@@ -1,8 +1,4 @@
 <div class="flex items-center gap-4">
-  <a href="#" class="text-sm font-medium text-gray-300 hover:text-white transition-colors">
-    Login
-  </a>
-  <a href="#" class="bg-primary hover:bg-primaryHover text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors">
-    Registrasi
-  </a>
+  <a href="{% url 'auth:login' %}" class="text-sm font-medium text-gray-300 hover:text-white transition-colors">Login</a>
+  <a href="{% url 'auth:register' %}" class="bg-primary hover:bg-primaryHover text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors">Daftar</a>
 </div>
