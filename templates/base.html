@@ -37,13 +37,16 @@
           <span class="text-xl font-bold text-white tracking-wide">TikTakTuk</span>
         </a>
       </div>
-      {% if user.is_authenticated %}
-        {% if user.role == 'admin' %}
+
+      {% if request.session.user_id %}
+        {% if request.session.role == 'administrator' or request.session.role == 'admin' %}
           {% include 'navbar/admin.html' %}
-        {% elif user.role == 'organizer' %}
+        {% elif request.session.role == 'organizer' %}
           {% include 'navbar/organizer.html' %}
-        {% elif user.role == 'customer' %}
+        {% elif request.session.role == 'customer' %}
           {% include 'navbar/customer.html' %}
+        {% else %}
+          {% include 'navbar/guest.html' %}
         {% endif %}
       {% else %}
         {% include 'navbar/guest.html' %}

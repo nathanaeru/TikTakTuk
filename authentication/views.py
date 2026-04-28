@@ -18,27 +18,30 @@ def register_view(request):
         # Validasi dasar
         if password != confirm_password:
             messages.error(request, "Password dan Konfirmasi Password tidak cocok!")
-            return redirect("register")
+            return redirect("auth:register")  # Ditambahkan namespace 'auth:'
 
         if UserAccount.objects.filter(username=username).exists():
             messages.error(
                 request, "Username sudah digunakan, silakan pilih yang lain."
             )
-            return redirect("register")
+            return redirect("auth:register")
 
         try:
             with transaction.atomic():
-                # 1. Buat Akun Utama
+                # 1. Buat Akun Utama dengan password yang di-hash
                 new_user = UserAccount.objects.create(
                     username=username,
-                    password=make_password(password),  # Enkripsi password
+                    password=make_password(password),
                 )
 
-                # 2. Petakan Role
-                role_obj = Role.objects.get(role_name=role_type)
+                # 2. Petakan Role secara aman
+                # Menggunakan get_or_create mencegah error jika data 'role' belum di-seed di database
+                role_obj, created = Role.objects.get_or_create(
+                    role_name=role_type.lower()
+                )
                 AccountRole.objects.create(user=new_user, role=role_obj)
 
-                # 3. Simpan ke tabel spesifik
+                # 3. Simpan ke profil spesifik (Customer / Organizer)
                 if role_type == "customer":
                     Customer.objects.create(
                         full_name=full_name, phone_number=phone, user=new_user
@@ -49,19 +52,19 @@ def register_view(request):
                     )
 
             messages.success(request, "Akun berhasil dibuat! Silakan login.")
-            return redirect("login")
+            return redirect("auth:login")
 
         except Exception as e:
-            messages.error(request, f"Terjadi kesalahan: {str(e)}")
-            return redirect("register")
+            messages.error(request, f"Terjadi kesalahan saat mendaftar: {str(e)}")
+            return redirect("auth:register")
 
     return render(request, "auth/register.html")
 
 
 def login_view(request):
-    # Jika user sudah login, langsung arahkan ke dashboard
+    # Jika user sudah memiliki session, arahkan langsung ke dashboard utama
     if "user_id" in request.session:
-        return redirect("dashboard")  # Ganti 'dashboard' dengan nama URL dashboard Anda
+        return redirect("dashboard")
 
     if request.method == "POST":
         username = request.POST.get("username")
@@ -71,13 +74,16 @@ def login_view(request):
             # Cari user berdasarkan username
             user = UserAccount.objects.get(username=username)
 
-            # Cocokkan password
+            # Cocokkan password (hash dari register baru ATAU plaintext dari data dummy SQL)
             if check_password(password, user.password) or password == user.password:
-                # (Catatan: 'password == user.password' ditambahkan untuk mentoleransi
-                # data dummy SQL awal yang mungkin belum di-hash)
 
-                # Ambil role dari tabel AccountRole
-                user_role = AccountRole.objects.get(user=user).role.role_name
+                # Ambil role dengan aman (menggunakan filter & first untuk menghindari DoesNotExist error)
+                account_role = (
+                    AccountRole.objects.filter(user=user).select_related("role").first()
+                )
+                user_role = (
+                    account_role.role.role_name.lower() if account_role else "guest"
+                )
 
                 # SET SESSION
                 request.session["user_id"] = str(user.user_id)
@@ -86,7 +92,7 @@ def login_view(request):
 
                 messages.success(request, f"Selamat datang, {user.username}!")
 
-                # Arahkan berdasarkan role
+                # Arahkan ke dashboard di core/urls.py
                 return redirect("dashboard")
             else:
                 messages.error(request, "Password salah!")
@@ -97,7 +103,7 @@ def login_view(request):
 
 
 def logout_view(request):
-    # Hapus semua data session
+    # Hapus semua data session (logout)
     request.session.flush()
     messages.success(request, "Anda berhasil logout.")
-    return redirect("login")
+    return redirect("auth:login")

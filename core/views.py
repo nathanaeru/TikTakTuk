@@ -34,7 +34,6 @@ def get_role(user_id):
     if not user_id:
         return "guest"
     try:
-        # select_related digunakan untuk JOIN efisien
         account_role = AccountRole.objects.select_related("role").get(user_id=user_id)
         return account_role.role.role_name.lower()
     except AccountRole.DoesNotExist:
@@ -46,7 +45,6 @@ def dashboard_pengguna(request, page="main"):
 
     # ======================== USER GUEST ========================
     if not user_id:
-        # Mengambil 3 event teratas
         trending_events_qs = Event.objects.select_related("venue").all()[:3]
         trending_events = [
             (e.event_title, e.event_datetime, e.venue.venue_name)
@@ -76,11 +74,9 @@ def dashboard_pengguna(request, page="main"):
     # ======================== USER LOGIN ========================
     user = get_object_or_404(UserAccount, user_id=user_id)
 
-    # Mencari profil spesifik (menangani jika tidak ada dengan exception aman)
     customer = Customer.objects.filter(user=user).first()
     organizer = Organizer.objects.filter(user=user).first()
 
-    # UPDATE PROFIL (POST)
     if request.method == "POST" and page == "profile":
         nama_baru = request.POST.get("nama_lengkap")
         telp_baru = request.POST.get("nomor_telepon")
@@ -90,20 +86,16 @@ def dashboard_pengguna(request, page="main"):
                 full_name=nama_baru, phone_number=telp_baru
             )
         elif organizer:
-            Organizer.objects.filter(user=user).update(
-                organizer_name=nama_baru
-            )  # Asumsi organizer_name
+            Organizer.objects.filter(user=user).update(organizer_name=nama_baru)
 
         messages.success(request, "Profil Anda berhasil diperbarui!")
         return redirect("dashboard_page", page="profile")
 
-    # Data User
     username = user.username
     full_name = customer.full_name if customer else None
     phone_number = customer.phone_number if customer else None
     organizer_name = organizer.organizer_name if organizer else None
 
-    # CEK ROLE
     raw_role_name = get_role(user_id)
 
     if raw_role_name == "administrator":
@@ -121,7 +113,6 @@ def dashboard_pengguna(request, page="main"):
         "role": role_display,
     }
 
-    # --- VIEW: PROFIL ---
     if page == "profile":
         display_name = (
             organizer_name if role_display == "organizer" else (full_name or username)
@@ -135,17 +126,19 @@ def dashboard_pengguna(request, page="main"):
         )
         return render(request, "dashboard/profile.html", context)
 
-    # --- VIEW: DASHBOARD ---
     if role_display == "customer":
         if customer:
-            # Statistik Dashboard Customer
             tiket_aktif = Ticket.objects.filter(
                 torder__customer=customer,
                 tcategory__tevent__event_datetime__gte=timezone.now(),
             ).count()
 
+            # PERBAIKAN: Gunakan 'order_id' bukan 'id'
             total_acara = (
-                Order.objects.filter(customer=customer).values("id").distinct().count()
+                Order.objects.filter(customer=customer)
+                .values("order_id")
+                .distinct()
+                .count()
             )
             kode_promo = Promotion.objects.filter(end_date__gte=timezone.now()).count()
 
@@ -160,7 +153,6 @@ def dashboard_pengguna(request, page="main"):
                 else f"Rp {int(belanja/1000)}K"
             )
 
-            # List Tiket
             tiket_list_qs = (
                 Ticket.objects.filter(
                     torder__customer=customer,
@@ -194,7 +186,7 @@ def dashboard_pengguna(request, page="main"):
     elif role_display == "admin":
         context.update({"nama": "System Console"})
 
-    else:  # ROLE ORGANIZER
+    else:
         if organizer:
             count_event = Event.objects.filter(organizer=organizer).count()
             context.update(
@@ -220,7 +212,6 @@ def ticket_list(request):
             usr = UserAccount.objects.filter(user_id=user_id).first()
             user_display_name = usr.username if usr else "Admin"
 
-    # Read Tickets
     tickets_qs = Ticket.objects.select_related(
         "torder__customer", "tcategory__tevent__venue"
     ).order_by("-tcategory__tevent__event_datetime", "ticket_code")
@@ -228,7 +219,6 @@ def ticket_list(request):
     if role == "customer":
         tickets_qs = tickets_qs.filter(torder__customer__user_id=user_id)
 
-    # Ekstrak data untuk template (menyesuaikan format tuple sebelumnya)
     tickets = []
     for t in tickets_qs:
         tickets.append(
@@ -250,18 +240,13 @@ def ticket_list(request):
     valid_count = total_tiket
     terpakai_count = 0
 
-    # Modal Create (Admin/Organizer)
     orders_json, categories_json, seats_json = [], [], []
 
     if role in ["administrator", "organizer"]:
-        # Order LUNAS
         orders_qs = Order.objects.filter(payment_status="LUNAS").select_related(
             "customer"
         )
-        # Catatan: ORM mungkin membutuhkan sedikit custom property di model Order untuk mendapatkan Event secara langsung jika strukturnya kompleks
-        # Ini adalah pendekatan dasar, Anda mungkin perlu menyesuaikan berdasarkan relasi model aktual
 
-        # Kategori Tiket (menggunakan annotate untuk menghitung tiket terjual)
         categories_qs = TicketCategory.objects.annotate(used=Count("ticket")).all()
         categories_json = [
             {
@@ -277,12 +262,13 @@ def ticket_list(request):
             for c in categories_qs
         ]
 
-        # Seat
-        seats_qs = Seat.objects.order_by(
-            "row", "seat_number"
-        )  # Menggunakan field model 'row'
+        # PERBAIKAN: Gunakan 'row_number' dan 'seat_id'
+        seats_qs = Seat.objects.order_by("row_number", "seat_number")
         seats_json = [
-            {"id": str(s.id), "display": f"Baris {s.row} — Kursi {s.seat_number}"}
+            {
+                "id": str(s.seat_id),
+                "display": f"Baris {s.row_number} — Kursi {s.seat_number}",
+            }
             for s in seats_qs
         ]
 
@@ -291,9 +277,7 @@ def ticket_list(request):
         "total_tiket": total_tiket,
         "valid_count": valid_count,
         "terpakai_count": terpakai_count,
-        "orders_data": json.dumps(
-            orders_json
-        ),  # Pastikan logika orders_json disesuaikan dengan model Order
+        "orders_data": json.dumps(orders_json),
         "categories_data": json.dumps(categories_json),
         "seats_data": json.dumps(seats_json),
         "user_id": user_id,
@@ -318,7 +302,6 @@ def create_ticket(request):
         new_ticket_id = uuid.uuid4()
 
         try:
-            # Create Ticket
             ticket = Ticket.objects.create(
                 ticket_id=new_ticket_id,
                 ticket_code=ticket_code,
@@ -326,7 +309,6 @@ def create_ticket(request):
                 tcategory_id=category_id,
             )
 
-            # Relasi Kursi
             if seat_id:
                 HasRelationship.objects.create(
                     ticket_id=str(new_ticket_id), seat_id=seat_id
@@ -344,7 +326,6 @@ def update_ticket(request, ticket_id):
         status = request.POST.get("status")
         seat_id = request.POST.get("seat")
 
-        # Asumsi field status ada di model Ticket
         Ticket.objects.filter(ticket_id=ticket_id).update(
             status=status, seat_id=seat_id if seat_id else None
         )
@@ -353,7 +334,6 @@ def update_ticket(request, ticket_id):
 
 
 def delete_ticket(request, ticket_id):
-    # Relasi HasRelationship otomatis terhapus jika di models.py menggunakan on_delete=models.CASCADE
     Ticket.objects.filter(ticket_id=ticket_id).delete()
     return redirect(request.META.get("HTTP_REFERER", "/"))
 
@@ -380,24 +360,24 @@ def seat_management(request):
             usr = UserAccount.objects.filter(user_id=user_id).first()
             user_display_name = usr.username if usr else "User"
 
-    # Read Seats (Menggunakan annotate Count untuk mengecek relasi efisien tanpa iterasi manual yang lambat)
+    # PERBAIKAN: Gunakan field spesifik model seperti 'venue_name', 'row_number'
     seats_qs = (
         Seat.objects.select_related("venue")
         .annotate(is_taken=Count("hasrelationship"))
-        .order_by("venue__nama_venue", "section", "row", "seat_number")
+        .order_by("venue__venue_name", "section", "row_number", "seat_number")
     )
 
     seat_list = []
     for s in seats_qs:
         seat_list.append(
             {
-                "seat_id": str(s.id),
+                "seat_id": str(s.seat_id),
                 "section": s.section,
-                "row": s.row,
+                "row": s.row_number,
                 "number": s.seat_number,
-                "venue": s.venue.nama_venue,
+                "venue": s.venue.venue_name,
                 "status": "TERISI" if s.is_taken > 0 else "TERSEDIA",
-                "venue_id": str(s.venue.id),
+                "venue_id": str(s.venue.venue_id),
             }
         )
 
@@ -407,7 +387,7 @@ def seat_management(request):
     venues_json = []
     if role_display in ["admin", "organizer"]:
         venues_json = [
-            {"id": str(v.id), "nama": v.nama_venue} for v in Venue.objects.all()
+            {"id": str(v.venue_id), "nama": v.venue_name} for v in Venue.objects.all()
         ]
 
     context = {
@@ -433,9 +413,9 @@ def create_seat(request):
         seat_num = request.POST.get("seat_number")
 
         try:
-            # Django ORM otomatis mengecek `unique_together` yang ada di model
+            # PERBAIKAN: row_number=row
             Seat.objects.create(
-                venue_id=venue_id, section=section, row=row, seat_number=seat_num
+                venue_id=venue_id, section=section, row_number=row, seat_number=seat_num
             )
             messages.success(request, "Kursi baru berhasil muncul di tabel!")
         except IntegrityError:
@@ -454,8 +434,9 @@ def update_seat(request, seat_id):
         seat_num = request.POST.get("seat_number")
 
         try:
-            Seat.objects.filter(id=seat_id).update(
-                venue_id=venue_id, section=section, row=row, seat_number=seat_num
+            # PERBAIKAN: filter menggunakan seat_id, update ke row_number
+            Seat.objects.filter(seat_id=seat_id).update(
+                venue_id=venue_id, section=section, row_number=row, seat_number=seat_num
             )
             messages.success(request, "Perubahan diterapkan pada tabel!")
         except IntegrityError:
@@ -465,14 +446,14 @@ def update_seat(request, seat_id):
 
 
 def delete_seat(request, seat_id):
-    # Pengecekan sebelum dihapus
+    # PERBAIKAN: filter menggunakan seat_id
     if HasRelationship.objects.filter(seat_id=seat_id).exists():
         messages.error(
             request,
             "Kursi ini sudah di-assign ke tiket dan tidak dapat dihapus. Hapus atau ubah tiket terlebih dahulu.",
         )
     else:
-        Seat.objects.filter(id=seat_id).delete()
+        Seat.objects.filter(seat_id=seat_id).delete()
         messages.success(request, "Kursi berhasil dihapus.")
 
     return redirect("seat_management")
