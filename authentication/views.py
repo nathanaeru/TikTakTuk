@@ -86,7 +86,7 @@ def login_view(request):
 
                 messages.success(request, f"Selamat datang, {user.username}!")
 
-                # Arahkan berdasarkan role (bisa disesuaikan nanti)
+                # Arahkan berdasarkan role
                 return redirect("dashboard")
             else:
                 messages.error(request, "Password salah!")

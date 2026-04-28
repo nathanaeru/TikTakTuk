@@ -6,7 +6,7 @@ from .models import Venue, Seat, HasRelationship
 
 
 def home_view(request):
-    return redirect("dashboard_guest")
+    return redirect("dashboard")
 
 
 def artist_list_view(request):
@@ -19,9 +19,11 @@ def ticket_category_list_view(request):
     return render(request, "ticket/ticket-category.html")
 
 
-def dashboard_pengguna(request, user_id=None, page="main"):
+def dashboard_pengguna(request, page="main"):
     # USER GUEST
-    if user_id is None:
+    user_id = request.session.get("user_id")
+
+    if not user_id:
         with connection.cursor() as cursor:
             cursor.execute("SET search_path TO tiktaktuk, public")
             cursor.execute(
@@ -77,7 +79,7 @@ def dashboard_pengguna(request, user_id=None, page="main"):
             )
 
             messages.success(request, "Profil Anda berhasil diperbarui!")
-            return redirect("dashboard_page", user_id=user_id, page="profile")
+            return redirect("dashboard_page", page="profile")
 
         cursor.execute(
             """
@@ -247,7 +249,8 @@ def get_role(user_id):
         return res[0].lower() if res else "guest"
 
 
-def ticket_list(request, user_id=None):
+def ticket_list(request):
+    user_id = request.session.get("user_id")
     # Identifikasi Role
     role = get_role(user_id)
     user_display_name = "Guest"
@@ -393,7 +396,8 @@ def ticket_list(request, user_id=None):
 
 
 def create_ticket(request, user_id):
-    """Proses penyimpanan tiket baru ke database."""
+    user_id = request.session.get("user_id")
+    # Proses penyimpanan tiket baru ke database.
     if request.method == "POST":
         order_id = request.POST.get("order")
         category_id = request.POST.get("category")
@@ -429,10 +433,11 @@ def create_ticket(request, user_id):
         except Exception as e:
             messages.error(request, f"Gagal membuat tiket: {e}")
 
-    return redirect("ticket_list", user_id=user_id)
+    return redirect("ticket_list")
 
 
 def update_ticket(request, ticket_id):
+    user_id = request.session.get("user_id")
     if request.method == "POST":
         status = request.POST.get("status")
         seat_id = request.POST.get("seat")  # Bisa None/Kosong
@@ -454,6 +459,7 @@ def update_ticket(request, ticket_id):
 
 
 def delete_ticket(request, ticket_id):
+    user_id = request.session.get("user_id")
     with connection.cursor() as cursor:
         cursor.execute("SET search_path TO tiktaktuk, public")
         # 1. Hapus relasi kursi dulu (jika ada tabel HAS_RELATIONSHIP)
@@ -465,12 +471,13 @@ def delete_ticket(request, ticket_id):
     return redirect(request.META.get("HTTP_REFERER", "/"))
 
 
-def seat_management(request, user_id=None):
+def seat_management(request):
     """
     Halaman List Kursi: Bisa dibaca semua role (Guest, Customer, Organizer, Admin).
     Aksi CUD: Hanya muncul untuk Admin & Organizer.
     """
     # Identifikasi Role
+    user_id = request.session.get("user_id")
     raw_role = get_role(user_id)
 
     # Mapping Role
@@ -566,7 +573,8 @@ def seat_management(request, user_id=None):
     return render(request, "dashboard/seat.html", context)
 
 
-def create_seat(request, user_id):
+def create_seat(request):
+    user_id = request.session.get("user_id")
     if request.method == "POST":
         venue_id = request.POST.get("venue")
         section = request.POST.get("section")
@@ -593,7 +601,8 @@ def create_seat(request, user_id):
     return redirect("seat_management", user_id=user_id)
 
 
-def update_seat(request, user_id, seat_id):
+def update_seat(request, seat_id):
+    user_id = request.session.get("user_id")
     if request.method == "POST":
         venue_id = request.POST.get("venue")
         section = request.POST.get("section")
@@ -618,7 +627,8 @@ def update_seat(request, user_id, seat_id):
     return redirect("seat_management", user_id=user_id)
 
 
-def delete_seat(request, user_id, seat_id):
+def delete_seat(request, seat_id):
+    user_id = request.session.get("user_id")
     try:
         with connection.cursor() as cursor:
             cursor.execute("SET search_path TO tiktaktuk, public")
