@@ -108,7 +108,7 @@
   <div id="createSeatModal" class="hidden fixed inset-0 z-50 bg-[#0F172A]/95 backdrop-blur-sm p-4 flex items-center justify-center">
     <div class="bg-slate-900 border border-slate-800 w-full max-w-lg rounded-[3rem] p-10 shadow-2xl relative">
       <h2 class="text-3xl font-black text-white mb-8">Tambah Kursi</h2>
-      <form method="POST" action="{% url 'create_seat' user_id=user_id %}" class="space-y-6">
+      <form method="POST" action="{% url 'create_seat' %}" class="space-y-6">
         {% csrf_token %}
         <div>
           <label class="block text-[10px] font-bold text-slate-500 uppercase mb-3 ml-2 tracking-widest">Venue</label>

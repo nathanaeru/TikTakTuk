@@ -1,3 +1,4 @@
+{% load static %}
 <!DOCTYPE html>
 <html lang="id" class="dark">
   <head>
@@ -62,5 +63,18 @@
     <footer class="border-t border-dark-border mt-auto py-6">
       <div class="max-w-7xl mx-auto px-8 text-center text-sm text-gray-500">&copy; 2026 TikTakTuk - Platform Manajemen Pertunjukan & Tiket.</div>
     </footer>
+
+    {# Notification System #}
+    {% include 'components/notification.html' %}
+    <script src="{% static 'js/notification.js' %}"></script>
+
+    {# Django Messages Handler #}
+    <div data-django-messages style="display: none;">
+      {% if messages %}
+        {% for message in messages %}
+          <span data-message="{{ message.tags }}" data-text="{{ message }}"></span>
+        {% endfor %}
+      {% endif %}
+    </div>
   </body>
 </html>

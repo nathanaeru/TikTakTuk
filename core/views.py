@@ -34,8 +34,11 @@ def get_role(user_id):
     if not user_id:
         return "guest"
     try:
-        account_role = AccountRole.objects.select_related("role").get(user_id=user_id)
-        return account_role.role.role_name.lower()
+        # Use .first() instead of .get() to handle users with multiple roles safely
+        account_role = (
+            AccountRole.objects.select_related("role").filter(user_id=user_id).first()
+        )
+        return account_role.role.role_name.lower() if account_role else "guest"
     except AccountRole.DoesNotExist:
         return "guest"
 
@@ -96,7 +99,8 @@ def dashboard_pengguna(request, page="main"):
     phone_number = customer.phone_number if customer else None
     organizer_name = organizer.organizer_name if organizer else None
 
-    raw_role_name = get_role(user_id)
+    # Get role from session first (from role selection), fallback to database
+    raw_role_name = request.session.get("role") or get_role(user_id)
 
     if raw_role_name == "administrator":
         role_display = "admin"
