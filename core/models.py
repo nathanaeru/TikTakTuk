@@ -10,6 +10,11 @@ class Venue(models.Model):
     capacity = models.IntegerField(default=1)
     address = models.TextField()
     city = models.CharField(max_length=100)
+    SEATING_CHOICES = [
+        ("Free Seating", "Free Seating"),
+        ("Reserved Seating", "Reserved Seating"),
+    ]
+    jenis_seating = models.CharField(max_length=20, choices=SEATING_CHOICES)
 
     class Meta:
         managed = False
@@ -17,6 +22,12 @@ class Venue(models.Model):
         constraints = [
             models.CheckConstraint(
                 condition=models.Q(capacity__gt=0), name="capacity_check"
+            ),
+            models.CheckConstraint(
+                condition=models.Q(
+                    jenis_seating__in=["Free Seating", "Reserved Seating"]
+                ),
+                name="jenis_seating_check",
             ),
         ]
 
