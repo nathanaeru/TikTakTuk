@@ -27,6 +27,8 @@
             </div>
             <div class="absolute -right-10 -top-10 w-40 h-40 bg-blue-600/10 rounded-full blur-3xl"></div>
         </div>
+        <div class="absolute -right-10 -top-10 w-40 h-40 bg-blue-600/10 rounded-full blur-3xl"></div>
+      </div>
 
         
         <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
@@ -43,6 +45,11 @@
                 <span class="text-3xl font-black text-orange-500">{{ total_terisi }}</span>
             </div>
         </div>
+        <div class="bg-slate-900/50 p-6 rounded-3xl border border-slate-800 shadow-lg group hover:border-orange-500/50 transition-all text-center">
+          <span class="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-1">Terisi (Ticketed)</span>
+          <span class="text-3xl font-black text-orange-500">{{ total_terisi }}</span>
+        </div>
+      </div>
 
         
         <div class="bg-slate-900/80 rounded-[2.5rem] border border-slate-800 overflow-hidden shadow-xl">
@@ -100,7 +107,7 @@
             </table>
         </div>
     </div>
-</div>
+  </div>
 
 
 <div id="createSeatModal" class="hidden fixed inset-0 z-50 bg-[#0F172A]/95 backdrop-blur-sm p-4 flex items-center justify-center">
@@ -134,7 +141,7 @@
             </div>
         </form>
     </div>
-</div>
+  </div>
 
 
 <div id="updateSeatModal" class="hidden fixed inset-0 z-50 bg-[#0F172A]/95 backdrop-blur-sm p-4 flex items-center justify-center">
@@ -166,7 +173,7 @@
             </div>
         </form>
     </div>
-</div>
+  </div>
 
 
 <div id="deleteModal" class="hidden fixed inset-0 z-[100] bg-black/60 backdrop-blur-sm p-4 flex items-center justify-center">
@@ -183,7 +190,7 @@
             <a id="confirmDeleteBtn" href="#" class="px-6 py-2 rounded-lg text-white bg-red-600 hover:bg-red-700 transition-all shadow-lg shadow-red-200">Hapus Sekarang</a>
         </div>
     </div>
-</div>
+  </div>
 
 
 <script>
