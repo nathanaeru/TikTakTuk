@@ -1,0 +1,280 @@
+{% extends 'base.html' %}
+
+{% block title %}
+  Event Saya - TikTakTuk
+{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto px-8 py-10">
+  <div class="flex justify-between items-center mb-8">
+    <div>
+      {% if role == 'admin' %}
+        <h1 class="text-3xl font-bold text-white">Manajemen Event</h1>
+        <p class="text-gray-400 mt-1">Kelola seluruh event pada platform TikTakTuk.</p>
+      {% else %}
+        <h1 class="text-3xl font-bold text-white">Event Saya</h1>
+        <p class="text-gray-400 mt-1">Kelola acara yang Anda buat.</p>
+      {% endif %}
+    </div>
+
+    {% if role == 'admin' or role == 'organizer' %}
+      <button onclick="openCreateEventModal()"
+        class="bg-primary hover:bg-primaryHover text-white px-4 py-2 rounded-lg text-sm font-medium">
+        + Buat Acara
+      </button>
+    {% endif %}
+  </div>
+
+  <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+    {% for event in events %}
+      <div class="bg-dark-card border border-dark-border rounded-2xl overflow-hidden">
+        <div class="h-40 bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-6xl">
+          {{ event.icon }}
+        </div>
+
+        <div class="p-5">
+          <h2 class="text-lg font-bold text-white mb-3">{{ event.title }}</h2>
+
+          <p class="text-sm text-gray-400">📅 {{ event.date }} • {{ event.time }}</p>
+          <p class="text-sm text-gray-400">📍 {{ event.venue }}</p>
+
+          <div class="flex flex-wrap gap-2 mt-3">
+            {% for artist in event.artists %}
+              <span class="text-xs bg-slate-700 text-gray-200 px-2 py-1 rounded">
+                {{ artist }}
+              </span>
+            {% endfor %}
+          </div>
+
+          <div class="flex justify-between items-center mt-5">
+            <div class="flex flex-wrap gap-2">
+              {% for category in event.categories %}
+                <span class="text-xs bg-blue-500/20 text-blue-300 px-3 py-1 rounded-full">
+                  {{ category }}
+                </span>
+              {% endfor %}
+            </div>
+
+            <span class="font-semibold text-white">Rp{{ event.price }}</span>
+          </div>
+
+          {% if role == 'admin' or role == 'organizer' %}
+            <div class="flex gap-2 mt-5">
+              <button onclick="openEditEventModal(this)"
+                data-title="{{ event.title|escapejs }}"
+                data-date="{{ event.date }}"
+                data-time="{{ event.time }}"
+                data-venue="{{ event.venue|escapejs }}"
+                data-desc="{{ event.description|default:''|escapejs }}"
+                class="w-full bg-yellow-500 hover:bg-yellow-600 text-white py-2 rounded-lg text-sm">
+                Edit
+              </button>
+            </div>
+          {% else %}
+            <button class="w-full mt-5 bg-primary hover:bg-primaryHover text-white py-2 rounded-lg text-sm">
+              Beli Tiket
+            </button>
+          {% endif %}
+        </div>
+      </div>
+    {% empty %}
+      <p class="text-gray-400">Belum ada event.</p>
+    {% endfor %}
+  </div>
+</div>
+
+<div id="eventModal" class="hidden fixed inset-0 bg-black/60 z-50 flex items-center justify-center px-4">
+  <div class="bg-white text-gray-900 rounded-2xl w-full max-w-5xl p-8 relative max-h-[90vh] overflow-y-auto">
+    <button onclick="closeEventModal()" class="absolute top-5 right-5 text-gray-400 hover:text-gray-700">
+      ✕
+    </button>
+
+    <h2 id="eventModalTitle" class="text-xl font-bold mb-8">Buat Acara Baru</h2>
+
+    <form class="grid grid-cols-1 md:grid-cols-2 gap-8">
+      <div class="space-y-5">
+        <div>
+          <label class="block text-sm font-bold text-gray-500 mb-2">
+            JUDUL ACARA (EVENT_TITLE)
+          </label>
+          <input id="eventTitleInput" type="text"
+            class="w-full border border-gray-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-blue-500"
+            placeholder="cth. Konser Melodi Senja">
+        </div>
+
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <label class="block text-sm font-bold text-gray-500 mb-2">
+              TANGGAL (DATE)
+            </label>
+            <input id="eventDateInput" type="date"
+              class="w-full border border-gray-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-blue-500">
+          </div>
+
+          <div>
+            <label class="block text-sm font-bold text-gray-500 mb-2">
+              WAKTU (TIME)
+            </label>
+            <input id="eventTimeInput" type="time"
+              class="w-full border border-gray-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-blue-500">
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-sm font-bold text-gray-500 mb-2">
+            VENUE (VENUE_ID)
+          </label>
+            <select id="eventVenueInput"
+              class="w-full border border-gray-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-blue-500">
+              <option value="Jakarta Convention Center">Jakarta Convention Center</option>
+              <option value="Taman Impian Jaya Ancol">Taman Impian Jaya Ancol</option>
+              <option value="Bandung Hall Center">Bandung Hall Center</option>
+            </select>
+        </div>
+
+        <div>
+          <label class="block text-sm font-bold text-gray-500 mb-2">
+            ARTIS (EVENT_ARTIST)
+          </label>
+
+          <div class="flex flex-wrap gap-2">
+            <button type="button" class="artist-chip border border-gray-200 px-3 py-2 rounded-xl text-sm hover:bg-blue-50">
+              Fourtwnty
+            </button>
+            <button type="button" class="artist-chip border border-gray-200 px-3 py-2 rounded-xl text-sm hover:bg-blue-50">
+              Hindia
+            </button>
+            <button type="button" class="artist-chip border border-gray-200 px-3 py-2 rounded-xl text-sm hover:bg-blue-50">
+              Tulus
+            </button>
+            <button type="button" class="artist-chip border border-gray-200 px-3 py-2 rounded-xl text-sm hover:bg-blue-50">
+              Nadin Amizah
+            </button>
+            <button type="button" class="artist-chip border border-gray-200 px-3 py-2 rounded-xl text-sm hover:bg-blue-50">
+              Pamungkas
+            </button>
+            <button type="button" class="artist-chip border border-gray-200 px-3 py-2 rounded-xl text-sm hover:bg-blue-50">
+              Raisa
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div class="space-y-5">
+        <div>
+          <label class="block text-sm font-bold text-gray-500 mb-2">
+            KATEGORI TIKET (TICKET_CATEGORY)
+          </label>
+
+          <div id="ticketCategoryContainer" class="space-y-3">
+            <div class="bg-gray-50 border border-gray-100 rounded-xl p-3">
+              <div class="flex gap-2 mb-2">
+                <input type="text"
+                  class="flex-1 border border-gray-200 rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500"
+                  value="Regular">
+                <button type="button" class="text-red-400 font-bold">⊗</button>
+              </div>
+
+              <div class="grid grid-cols-2 gap-2">
+                <input type="number"
+                  class="border border-gray-200 rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="Harga" value="100000">
+                <input type="number"
+                  class="border border-gray-200 rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="Kuota" value="100">
+              </div>
+            </div>
+          </div>
+
+          <button type="button" onclick="addTicketCategory()"
+            class="text-blue-600 text-sm font-bold mt-3">
+            + Tambah Kategori
+          </button>
+        </div>
+
+        <div>
+          <label class="block text-sm font-bold text-gray-500 mb-2">
+            DESKRIPSI
+          </label>
+          <textarea id="eventDescriptionInput"
+            class="w-full border border-gray-200 rounded-xl px-4 py-3 min-h-32 outline-none focus:ring-2 focus:ring-blue-500"
+            placeholder="Deskripsi acara..."></textarea>
+        </div>
+      </div>
+
+      <div class="md:col-span-2 grid grid-cols-2 gap-4 mt-2">
+        <button type="button" onclick="closeEventModal()"
+          class="border border-gray-200 rounded-xl py-3 font-semibold hover:bg-gray-50">
+          Batal
+        </button>
+        
+        <button id="eventSubmitBtn" type="submit"
+          class="bg-primary hover:bg-primaryHover text-white rounded-xl py-3 font-semibold">
+          Buat Acara
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+  function openCreateEventModal() {
+    document.getElementById("eventModalTitle").innerText = "Buat Acara Baru";
+    document.getElementById("eventSubmitBtn").innerText = "Buat Acara";
+
+    document.getElementById("eventTitleInput").value = "";
+    document.getElementById("eventDateInput").value = "";
+    document.getElementById("eventTimeInput").value = "";
+    document.getElementById("eventDescriptionInput").value = "";
+
+    document.getElementById("eventModal").classList.remove("hidden");
+  }
+
+  function openEditEventModal(btn) {
+    document.getElementById("eventModalTitle").innerText = "Edit Acara";
+    document.getElementById("eventSubmitBtn").innerText = "Simpan";
+
+    document.getElementById("eventTitleInput").value = btn.dataset.title || "";
+    document.getElementById("eventDateInput").value = btn.dataset.date || "";
+    document.getElementById("eventTimeInput").value = btn.dataset.time || "";
+    document.getElementById("eventDescriptionInput").value = btn.dataset.desc || "";
+
+    const venueSelect = document.getElementById("eventVenueInput");
+    if (venueSelect) {
+      venueSelect.value = btn.dataset.venue || "";
+    }
+
+    document.getElementById("eventModal").classList.remove("hidden");
+  }
+
+  function closeEventModal() {
+    document.getElementById("eventModal").classList.add("hidden");
+  }
+
+  function addTicketCategory() {
+    const container = document.getElementById("ticketCategoryContainer");
+
+    const item = document.createElement("div");
+    item.className = "bg-gray-50 border border-gray-100 rounded-xl p-3";
+    item.innerHTML = `
+      <div class="flex gap-2 mb-2">
+        <input type="text"
+          class="flex-1 border border-gray-200 rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500"
+          placeholder="Nama kategori">
+        <button type="button" onclick="this.closest('.bg-gray-50').remove()" class="text-red-400 font-bold">⊗</button>
+      </div>
+
+      <div class="grid grid-cols-2 gap-2">
+        <input type="number"
+          class="border border-gray-200 rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500"
+          placeholder="Harga">
+        <input type="number"
+          class="border border-gray-200 rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500"
+          placeholder="Kuota">
+      </div>
+    `;
+
+    container.appendChild(item);
+  }
+</script>
+{% endblock %}

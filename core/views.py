@@ -448,6 +448,118 @@ def update_seat(request, seat_id):
 
     return redirect("seat_management")
 
+def delete_seat(request, user_id, seat_id):
+    try:
+        with connection.cursor() as cursor:
+            cursor.execute("SET search_path TO tiktaktuk, public")
+            
+            cursor.execute('SELECT 1 FROM HAS_RELATIONSHIP WHERE seat_id = %s', [seat_id])
+            if cursor.fetchone():
+                messages.error(request, "Kursi ini sudah di-assign ke tiket dan tidak dapat dihapus. Hapus atau ubah tiket terlebih dahulu.")
+            else:
+                cursor.execute('DELETE FROM SEAT WHERE seat_id = %s', [seat_id])
+                messages.success(request, "Kursi berhasil dihapus.")
+    except Exception as e:
+        messages.error(request, f"Terjadi kesalahan: {e}")
+
+    return redirect('seat_management', user_id=user_id)
+
+def venue_list(request):
+    role = request.GET.get('role', 'customer')
+
+    venues = [
+        {
+            "id": 1,
+            "name": "Jakarta Convention Center",
+            "address": "Jl. Gatot Subroto No.1, Jakarta",
+            "city": "Jakarta",
+            "capacity": 1000,
+            "has_reserved_seating": True,
+        },
+        {
+            "id": 2,
+            "name": "Taman Impian Jaya Ancol",
+            "address": "Jl. Lodan Timur No.7, Jakarta Utara",
+            "city": "Jakarta",
+            "capacity": 500,
+            "has_reserved_seating": False,
+        },
+    ]
+
+    total_capacity = sum(v["capacity"] for v in venues)
+    reserved_count = sum(1 for v in venues if v["has_reserved_seating"])
+
+    return render(request, "venue/venue_list.html", {
+        "role": role,
+        "venues": venues,
+        "total_capacity": total_capacity,
+        "reserved_count": reserved_count,
+    })
+
+semua_dummy_event = [
+    {
+        "title": "Konser Melodi Senja",
+        "date": "2026-05-15",
+        "time": "19:00",
+        "venue": "Jakarta Convention Center",
+        "artists": ["Fourtwnty", "Hindia"],
+        "price": "250.000",
+        "categories": ["VIP"],
+        "icon": "🎵",
+        "organizer_id": 1,
+        "description": "Nikmati suasana senja dengan alunan musik indie.",
+    },
+    {
+        "title": "Festival Seni Budaya",
+        "date": "2026-05-22",
+        "time": "10:00",
+        "venue": "Taman Impian Jaya Ancol",
+        "artists": ["Tulus"],
+        "price": "150.000",
+        "categories": ["Regular"],
+        "icon": "🎨",
+        "organizer_id": 1,
+        "description": "Festival seni dan budaya untuk semua kalangan.",
+    },
+    {
+        "title": "Malam Akustik Bandung",
+        "date": "2026-06-10",
+        "time": "18:00",
+        "venue": "Bandung Hall Center",
+        "artists": ["Pamungkas", "Nadin Amizah"],
+        "price": "350.000",
+        "categories": ["VIP", "Regular"],
+        "icon": "🎸",
+        "organizer_id": 2,
+        "description": "Malam musik akustik di Bandung.",
+    },
+]
+
+def event_list(request):
+    # Customer: semua event, tombol beli tiket
+    events = semua_dummy_event
+    return render(request, "event/event_list.html", {
+        "role": "customer",
+        "events": events,
+    })
+
+
+def admin_event_list(request):
+    events = semua_dummy_event
+
+    return render(request, "event/my_event_list.html", {
+        "events": events,
+        "role": "admin",
+    })
+
+
+def my_event_list(request):
+    events = [e for e in semua_dummy_event if e["organizer_id"] == 1]
+
+    return render(request, "event/my_event_list.html", {
+        "events": events,
+        "role": "organizer",
+    })
 
 def delete_seat(request, seat_id):
     # PERBAIKAN: filter menggunakan seat_id
