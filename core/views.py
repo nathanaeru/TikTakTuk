@@ -23,11 +23,66 @@ def home_view(request):
 
 
 def artist_list_view(request):
+    if "user_id" not in request.session:
+        messages.error(request, "Silakan login untuk melihat daftar artis.")
+        return redirect("login")
+
     return render(request, "artist/artist.html")
+
+
+def create_artist(request):
+    # CREATE: Hanya Admin
+    if request.session.get("role") != "administrator":
+        return redirect("artist_list")
+    # ... logika simpan data artis ...
+    pass
+
+
+def update_artist(request, artist_id):
+    # UPDATE: Hanya Admin
+    if request.session.get("role") != "administrator":
+        return redirect("artist_list")
+    # ... logika update data artis ...
+    pass
+
+
+def delete_artist(request, artist_id):
+    # DELETE: Hanya Admin
+    if request.session.get("role") != "administrator":
+        return redirect("artist_list")
+    # ... logika hapus data artis ...
+    pass
 
 
 def ticket_category_list_view(request):
     return render(request, "ticket/ticket-category.html")
+
+
+def create_ticket_category(request):
+    # CREATE: Hanya Admin dan Organizer
+    role = request.session.get("role")
+    if role not in ["administrator", "organizer"]:
+        return redirect("ticket_category_list")
+    # ... logika simpan kategori tiket ...
+    pass
+
+
+def update_ticket_category(request, category_id):
+    # UPDATE: Hanya Admin dan Organizer
+    role = request.session.get("role")
+    if role not in ["administrator", "organizer"]:
+        return redirect("ticket_category_list")
+    # ... logika update kategori tiket ...
+    pass
+
+
+def delete_ticket_category(request, category_id):
+    # DELETE: Hanya Admin dan Organizer
+    role = request.session.get("role")
+    if role not in ["administrator", "organizer"]:
+        return redirect("ticket_category_list")
+    # ... logika hapus kategori tiket ...
+    pass
 
 
 def get_role(user_id):

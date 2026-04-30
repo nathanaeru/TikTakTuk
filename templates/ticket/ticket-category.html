@@ -11,7 +11,9 @@
         <h1 class="text-3xl font-bold text-white mb-2">Kategori Tiket</h1>
         <p class="text-gray-400">Kelola kategori dan harga tiket per acara</p>
       </div>
-      <button id="btnOpenAddModal" class="bg-primary hover:bg-primaryHover text-white font-medium px-5 py-2.5 rounded-lg transition-colors flex items-center gap-2"><span>+</span> Tambah Kategori</button>
+      {% if request.session.role == 'administrator' or request.session.role == 'organizer' %}
+        <button id="btnOpenAddModal" class="bg-primary hover:bg-primaryHover text-white font-medium px-5 py-2.5 rounded-lg transition-colors flex items-center gap-2"><span>+</span> Tambah Kategori</button>
+      {% endif %}
     </div>
 
     <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
@@ -46,7 +48,9 @@
               <th class="px-6 py-4 font-medium">Acara</th>
               <th class="px-6 py-4 font-medium">Harga</th>
               <th class="px-6 py-4 font-medium">Kuota</th>
-              <th class="px-6 py-4 font-medium text-right">Aksi</th>
+              {% if request.session.role == 'administrator' or request.session.role == 'organizer' %}
+                <th class="px-6 py-4 font-medium text-right">Aksi</th>
+              {% endif %}
             </tr>
           </thead>
           <tbody class="divide-y divide-dark-border">
@@ -55,10 +59,12 @@
               <td class="px-6 py-4 text-gray-400">Konser Melodi Senja</td>
               <td class="px-6 py-4 text-primary font-medium">Rp 1,500,000</td>
               <td class="px-6 py-4">50 tiket</td>
-              <td class="px-6 py-4 text-right space-x-3">
-                <button class="btn-edit text-gray-400 hover:text-white transition-colors">Edit</button>
-                <button class="btn-delete text-red-500 hover:text-red-400 transition-colors">Hapus</button>
-              </td>
+              {% if request.session.role == 'administrator' or request.session.role == 'organizer' %}
+                <td class="px-6 py-4 text-right space-x-3">
+                  <button class="btn-edit text-gray-400 hover:text-white transition-colors">Edit</button>
+                  <button class="btn-delete text-red-500 hover:text-red-400 transition-colors">Hapus</button>
+                </td>
+              {% endif %}
             </tr>
           </tbody>
         </table>
