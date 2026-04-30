@@ -19,7 +19,6 @@ urlpatterns = [
     path('event/', views.event_list, name='event_list'),
     path('my-event/', views.my_event_list, name='my_event_list'),
     path('admin-event/', views.admin_event_list, name='admin_event_list'),
-]
     path("", views.home_view, name="home"),
     # Manajemen Seat
     path("dashboard/seat/", views.seat_management, name="seat_management"),
