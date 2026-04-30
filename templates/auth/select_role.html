@@ -1,0 +1,108 @@
+{% extends 'base.html' %}
+
+{% block title %}
+  Pilih Role - TikTakTuk
+{% endblock %}
+
+{% block content %}
+  <div class="min-h-[80vh] flex items-center justify-center px-4">
+    <div class="bg-dark-card/80 backdrop-blur-md border border-dark-border rounded-2xl p-8 max-w-md w-full shadow-2xl">
+      <div class="text-center mb-8">
+        <div class="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-primary text-white font-bold text-xl mb-4 shadow-lg shadow-primary/30">TT</div>
+        <h1 class="text-2xl font-bold text-white mb-2">Pilih Role Anda</h1>
+        <p class="text-sm text-gray-400">Selamat datang, <span class="text-primary font-medium">{{ username }}</span></p>
+        <p class="text-xs text-gray-500 mt-2">Anda memiliki akses dengan beberapa role. Pilih role mana yang ingin Anda gunakan untuk login.</p>
+      </div>
+
+      <form method="POST" class="space-y-4">
+        {% csrf_token %}
+        <div class="space-y-3">
+          {% for role in roles %}
+            <label class="block cursor-pointer" data-role-option>
+              <input type="radio" name="role_id" value="{{ role.role_id }}" required class="sr-only" />
+              <div class="relative p-4 rounded-lg border border-dark-border bg-dark-bg transition-all duration-200 hover:border-primary/50" data-role-card>
+                <div class="flex items-center justify-between gap-4">
+                  <div class="flex items-center gap-3 min-w-0">
+                    <div class="w-5 h-5 rounded-full border-2 border-dark-border bg-dark-card flex items-center justify-center transition-all duration-200" data-role-indicator>
+                      <div class="w-2 h-2 rounded-full bg-white opacity-0 transition-opacity duration-200" data-role-dot></div>
+                    </div>
+                    <p class="text-gray-200 font-medium text-sm truncate" data-role-name>{{ role.role_name }}</p>
+                  </div>
+                  <span class="text-[10px] uppercase tracking-[0.2em] font-bold text-primary opacity-0 transition-opacity duration-200" data-role-badge>
+                    Selected
+                  </span>
+                </div>
+              </div>
+            </label>
+          {% endfor %}
+        </div>
+
+        <button type="submit" class="w-full bg-primary hover:bg-primaryHover text-white font-medium py-3 rounded-lg transition-colors mt-6">
+          Lanjutkan dengan Role Ini
+        </button>
+      </form>
+
+      <div class="mt-4 text-center">
+        <a href="{% url 'auth:logout' %}" class="text-sm text-gray-400 hover:text-red-400 transition-colors">
+          Keluar dan Login dengan Akun Lain
+        </a>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', function () {
+      const options = Array.from(document.querySelectorAll('[data-role-option]'));
+
+      if (options.length > 0) {
+        const firstInput = options[0].querySelector('input[type="radio"]');
+        if (firstInput && !Array.from(document.querySelectorAll('input[name="role_id"]')).some((input) => input.checked)) {
+          firstInput.checked = true;
+        }
+      }
+
+      function syncRoleSelection() {
+        options.forEach((option) => {
+          const input = option.querySelector('input[type="radio"]');
+          const card = option.querySelector('[data-role-card]');
+          const indicator = option.querySelector('[data-role-indicator]');
+          const dot = option.querySelector('[data-role-dot]');
+          const badge = option.querySelector('[data-role-badge]');
+          const name = option.querySelector('[data-role-name]');
+          const selected = input && input.checked;
+
+          if (selected) {
+            card.classList.add('border-primary', 'bg-primary/10', 'shadow-lg', 'shadow-primary/10');
+            card.classList.remove('border-dark-border', 'bg-dark-bg');
+            indicator.classList.add('border-primary', 'bg-primary', 'shadow-[0_0_0_4px_rgba(59,130,246,0.12)]');
+            indicator.classList.remove('border-dark-border', 'bg-dark-card');
+            dot.classList.remove('opacity-0');
+            dot.classList.add('opacity-100');
+            badge.classList.remove('opacity-0');
+            badge.classList.add('opacity-100');
+            name.classList.add('text-white');
+          } else {
+            card.classList.remove('border-primary', 'bg-primary/10', 'shadow-lg', 'shadow-primary/10');
+            card.classList.add('border-dark-border', 'bg-dark-bg');
+            indicator.classList.remove('border-primary', 'bg-primary', 'shadow-[0_0_0_4px_rgba(59,130,246,0.12)]');
+            indicator.classList.add('border-dark-border', 'bg-dark-card');
+            dot.classList.add('opacity-0');
+            dot.classList.remove('opacity-100');
+            badge.classList.add('opacity-0');
+            badge.classList.remove('opacity-100');
+            name.classList.remove('text-white');
+          }
+        });
+      }
+
+      options.forEach((option) => {
+        const input = option.querySelector('input[type="radio"]');
+        if (input) {
+          input.addEventListener('change', syncRoleSelection);
+        }
+      });
+
+      syncRoleSelection();
+    });
+  </script>
+{% endblock %}
