@@ -1,5 +1,6 @@
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib import messages
+from django.db import connection, IntegrityError
 from django.db.models import Count, Sum
 from django.utils import timezone
 from django.db import IntegrityError
@@ -24,11 +25,66 @@ def home_view(request):
 
 
 def artist_list_view(request):
+    if "user_id" not in request.session:
+        messages.error(request, "Silakan login untuk melihat daftar artis.")
+        return redirect("login")
+
     return render(request, "artist/artist.html")
+
+
+def create_artist(request):
+    # CREATE: Hanya Admin
+    if request.session.get("role") != "administrator":
+        return redirect("artist_list")
+    # ... logika simpan data artis ...
+    pass
+
+
+def update_artist(request, artist_id):
+    # UPDATE: Hanya Admin
+    if request.session.get("role") != "administrator":
+        return redirect("artist_list")
+    # ... logika update data artis ...
+    pass
+
+
+def delete_artist(request, artist_id):
+    # DELETE: Hanya Admin
+    if request.session.get("role") != "administrator":
+        return redirect("artist_list")
+    # ... logika hapus data artis ...
+    pass
 
 
 def ticket_category_list_view(request):
     return render(request, "ticket/ticket-category.html")
+
+
+def create_ticket_category(request):
+    # CREATE: Hanya Admin dan Organizer
+    role = request.session.get("role")
+    if role not in ["administrator", "organizer"]:
+        return redirect("ticket_category_list")
+    # ... logika simpan kategori tiket ...
+    pass
+
+
+def update_ticket_category(request, category_id):
+    # UPDATE: Hanya Admin dan Organizer
+    role = request.session.get("role")
+    if role not in ["administrator", "organizer"]:
+        return redirect("ticket_category_list")
+    # ... logika update kategori tiket ...
+    pass
+
+
+def delete_ticket_category(request, category_id):
+    # DELETE: Hanya Admin dan Organizer
+    role = request.session.get("role")
+    if role not in ["administrator", "organizer"]:
+        return redirect("ticket_category_list")
+    # ... logika hapus kategori tiket ...
+    pass
 
 
 def get_role(user_id):
@@ -341,47 +397,66 @@ def update_ticket(request, ticket_id):
 def delete_ticket(request, ticket_id):
     with connection.cursor() as cursor:
         cursor.execute("SET search_path TO tiktaktuk, public")
-       
-        cursor.execute('DELETE FROM TICKET WHERE ticket_id = %s', [ticket_id])
-        
-    return redirect(request.META.get('HTTP_REFERER', '/'))
+
+        cursor.execute("DELETE FROM TICKET WHERE ticket_id = %s", [ticket_id])
+
+    return redirect(request.META.get("HTTP_REFERER", "/"))
+
 
 def seat_management(request, user_id=None):
     """
     Halaman List Kursi: Bisa dibaca semua role (Guest, Customer, Organizer, Admin).
     Aksi CUD: Hanya muncul untuk Admin & Organizer.
     """
-    #Identifikasi Role
-    raw_role = get_role(user_id) 
-    
-    #Mapping Role 
-    if raw_role == 'administrator':
+    current_user_id = user_id or request.session.get("user_id")
+
+    # Identifikasi Role
+    raw_role = get_role(current_user_id)
+
+    # Mapping Role
+    if raw_role == "administrator":
         role_display = "admin"
-    elif raw_role == 'organizer':
+    elif raw_role == "organizer":
         role_display = "organizer"
-    elif raw_role == 'customer':
+    elif raw_role == "customer":
         role_display = "customer"
     else:
         role_display = "guest"
-    
+
+    seat_base_path = (
+        f"/dashboard/{current_user_id}/seat" if current_user_id else "/dashboard/seat"
+    )
+    seat_create_url = f"{seat_base_path}/create/"
+    seat_update_base_url = f"{seat_base_path}/update/"
+    seat_delete_base_url = f"{seat_base_path}/delete/"
+
     with connection.cursor() as cursor:
         cursor.execute("SET search_path TO tiktaktuk, public")
-        
-        #Nama User untuk Greeting
+
+        # Nama User untuk Greeting
         user_display_name = "Guest"
-        if user_id:
-            if role_display == 'organizer':
-                cursor.execute('SELECT organizer_name FROM ORGANIZER WHERE user_id = %s', [user_id])
-            elif role_display == 'customer':
-                cursor.execute('SELECT full_name FROM CUSTOMER WHERE user_id = %s', [user_id])
+        if current_user_id:
+            if role_display == "organizer":
+                cursor.execute(
+                    "SELECT organizer_name FROM ORGANIZER WHERE user_id = %s",
+                    [current_user_id],
+                )
+            elif role_display == "customer":
+                cursor.execute(
+                    "SELECT full_name FROM CUSTOMER WHERE user_id = %s",
+                    [current_user_id],
+                )
             else:
-                cursor.execute('SELECT username FROM USER_ACCOUNT WHERE user_id = %s', [user_id])
-            
+                cursor.execute(
+                    "SELECT username FROM USER_ACCOUNT WHERE user_id = %s",
+                    [current_user_id],
+                )
+
             row_name = cursor.fetchone()
             user_display_name = row_name[0] if row_name else "User"
 
-        # read 
-        cursor.execute('''
+        # read
+        cursor.execute("""
             SELECT 
                 s.seat_id, s.section, s.row_number, s.seat_number, v.venue_name,
                 CASE 
@@ -393,33 +468,35 @@ def seat_management(request, user_id=None):
             JOIN VENUE v ON s.venue_id = v.venue_id
             LEFT JOIN HAS_RELATIONSHIP hr ON s.seat_id = hr.seat_id
             ORDER BY v.venue_name, s.section, s.row_number, s.seat_number
-        ''')
+        """)
         rows = cursor.fetchall()
-        
+
         seat_list = []
         for r in rows:
-            seat_list.append({
-                'seat_id': str(r[0]),
-                'section': r[1],
-                'row': r[2],
-                'number': r[3],
-                'venue': r[4],
-                'status': r[5],
-                'venue_id': str(r[6])
-            })
+            seat_list.append(
+                {
+                    "seat_id": str(r[0]),
+                    "section": r[1],
+                    "row": r[2],
+                    "number": r[3],
+                    "venue": r[4],
+                    "status": r[5],
+                    "venue_id": str(r[6]),
+                }
+            )
 
-        #Statistik Dashboard
-        cursor.execute('SELECT COUNT(*) FROM SEAT')
+        # Statistik Dashboard
+        cursor.execute("SELECT COUNT(*) FROM SEAT")
         total_seats = cursor.fetchone()[0] or 0
-        
-        cursor.execute('SELECT COUNT(*) FROM HAS_RELATIONSHIP')
+
+        cursor.execute("SELECT COUNT(*) FROM HAS_RELATIONSHIP")
         total_taken = cursor.fetchone()[0] or 0
 
-        #Data Venue (Admin/Org untuk Modal)
+        # Data Venue (Admin/Org untuk Modal)
         venues_json = []
-        if role_display in ['admin', 'organizer']:
-            cursor.execute('SELECT venue_id, venue_name FROM VENUE')
-            venues_json = [{'id': str(v[0]), 'nama': v[1]} for v in cursor.fetchall()]
+        if role_display in ["admin", "organizer"]:
+            cursor.execute("SELECT venue_id, venue_name FROM VENUE")
+            venues_json = [{"id": str(v[0]), "nama": v[1]} for v in cursor.fetchall()]
 
     # Kirim Context
     context = {
@@ -427,8 +504,11 @@ def seat_management(request, user_id=None):
         "total_kursi": total_seats,
         "total_terisi": total_taken,
         "total_tersedia": total_seats - total_taken,
+        "seat_create_url": seat_create_url,
+        "seat_update_base_url": seat_update_base_url,
+        "seat_delete_base_url": seat_delete_base_url,
         "venues_data": json.dumps(venues_json),
-        "user_id": user_id,
+        "user_id": current_user_id,
         "user_name": user_display_name,
         "role": role_display,
         "title": "Seat Inventory",
@@ -476,24 +556,31 @@ def update_seat(request, seat_id):
 
     return redirect("seat_management")
 
+
 def delete_seat(request, user_id, seat_id):
     try:
         with connection.cursor() as cursor:
             cursor.execute("SET search_path TO tiktaktuk, public")
-            
-            cursor.execute('SELECT 1 FROM HAS_RELATIONSHIP WHERE seat_id = %s', [seat_id])
+
+            cursor.execute(
+                "SELECT 1 FROM HAS_RELATIONSHIP WHERE seat_id = %s", [seat_id]
+            )
             if cursor.fetchone():
-                messages.error(request, "Kursi ini sudah di-assign ke tiket dan tidak dapat dihapus. Hapus atau ubah tiket terlebih dahulu.")
+                messages.error(
+                    request,
+                    "Kursi ini sudah di-assign ke tiket dan tidak dapat dihapus. Hapus atau ubah tiket terlebih dahulu.",
+                )
             else:
-                cursor.execute('DELETE FROM SEAT WHERE seat_id = %s', [seat_id])
+                cursor.execute("DELETE FROM SEAT WHERE seat_id = %s", [seat_id])
                 messages.success(request, "Kursi berhasil dihapus.")
     except Exception as e:
         messages.error(request, f"Terjadi kesalahan: {e}")
 
-    return redirect('seat_management', user_id=user_id)
+    return redirect("seat_management", user_id=user_id)
+
 
 def venue_list(request):
-    role = request.GET.get('role', 'customer')
+    role = request.GET.get("role", "customer")
 
     venues = [
         {
@@ -517,12 +604,17 @@ def venue_list(request):
     total_capacity = sum(v["capacity"] for v in venues)
     reserved_count = sum(1 for v in venues if v["has_reserved_seating"])
 
-    return render(request, "venue/venue_list.html", {
-        "role": role,
-        "venues": venues,
-        "total_capacity": total_capacity,
-        "reserved_count": reserved_count,
-    })
+    return render(
+        request,
+        "venue/venue_list.html",
+        {
+            "role": role,
+            "venues": venues,
+            "total_capacity": total_capacity,
+            "reserved_count": reserved_count,
+        },
+    )
+
 
 semua_dummy_event = [
     {
@@ -563,31 +655,45 @@ semua_dummy_event = [
     },
 ]
 
+
 def event_list(request):
     # Customer: semua event, tombol beli tiket
     events = semua_dummy_event
-    return render(request, "event/event_list.html", {
-        "role": "customer",
-        "events": events,
-    })
+    return render(
+        request,
+        "event/event_list.html",
+        {
+            "role": "customer",
+            "events": events,
+        },
+    )
 
 
 def admin_event_list(request):
     events = semua_dummy_event
 
-    return render(request, "event/my_event_list.html", {
-        "events": events,
-        "role": "admin",
-    })
+    return render(
+        request,
+        "event/my_event_list.html",
+        {
+            "events": events,
+            "role": "admin",
+        },
+    )
 
 
 def my_event_list(request):
     events = [e for e in semua_dummy_event if e["organizer_id"] == 1]
 
-    return render(request, "event/my_event_list.html", {
-        "events": events,
-        "role": "organizer",
-    })
+    return render(
+        request,
+        "event/my_event_list.html",
+        {
+            "events": events,
+            "role": "organizer",
+        },
+    )
+
 
 def delete_seat(request, seat_id):
     # PERBAIKAN: filter menggunakan seat_id
