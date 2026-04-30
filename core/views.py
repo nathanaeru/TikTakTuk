@@ -509,6 +509,8 @@ def delete_seat(request, user_id, seat_id):
     return redirect('seat_management', user_id=user_id)
 
 def venue_list(request):
+    role = request.GET.get('role', 'customer')
+
     venues = [
         {
             "id": 1,
@@ -528,9 +530,14 @@ def venue_list(request):
         },
     ]
 
+    total_capacity = sum(v["capacity"] for v in venues)
+    reserved_count = sum(1 for v in venues if v["has_reserved_seating"])
+
     return render(request, "venue/venue_list.html", {
-        "role": "admin",
+        "role": role,
         "venues": venues,
+        "total_capacity": total_capacity,
+        "reserved_count": reserved_count,
     })
 
 semua_dummy_event = [
@@ -544,6 +551,7 @@ semua_dummy_event = [
         "categories": ["VIP"],
         "icon": "🎵",
         "organizer_id": 1,
+        "description": "Nikmati suasana senja dengan alunan musik indie.",
     },
     {
         "title": "Festival Seni Budaya",
@@ -555,6 +563,7 @@ semua_dummy_event = [
         "categories": ["Regular"],
         "icon": "🎨",
         "organizer_id": 1,
+        "description": "Festival seni dan budaya untuk semua kalangan.",
     },
     {
         "title": "Malam Akustik Bandung",
@@ -566,11 +575,12 @@ semua_dummy_event = [
         "categories": ["VIP", "Regular"],
         "icon": "🎸",
         "organizer_id": 2,
+        "description": "Malam musik akustik di Bandung.",
     },
 ]
 
 def event_list(request):
-    # Customer: semua event, read-only
+    # Customer: semua event, tombol beli tiket
     events = semua_dummy_event
     return render(request, "event/event_list.html", {
         "role": "customer",
@@ -578,19 +588,19 @@ def event_list(request):
     })
 
 
-def my_event_list(request):
-    # Organizer: hanya event miliknya
-    events = [event for event in semua_dummy_event if event["organizer_id"] == 1]
+def admin_event_list(request):
+    events = semua_dummy_event
+
     return render(request, "event/my_event_list.html", {
-        "role": "organizer",
         "events": events,
+        "role": "admin",
     })
 
 
-def admin_event_list(request):
-    # Admin: semua event
-    events = semua_dummy_event
+def my_event_list(request):
+    events = [e for e in semua_dummy_event if e["organizer_id"] == 1]
+
     return render(request, "event/my_event_list.html", {
-        "role": "admin",
         "events": events,
+        "role": "organizer",
     })

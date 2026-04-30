@@ -17,7 +17,7 @@
       {% endif %}
     </div>
 
-    {% if role == 'organizer' %}
+    {% if role == 'admin' or role == 'organizer' %}
       <button onclick="openCreateEventModal()"
         class="bg-primary hover:bg-primaryHover text-white px-4 py-2 rounded-lg text-sm font-medium">
         + Buat Acara
@@ -58,17 +58,23 @@
             <span class="font-semibold text-white">Rp{{ event.price }}</span>
           </div>
 
-          <div class="flex gap-2 mt-5">
-            <button onclick="openEditEventModal()"
-              class="flex-1 bg-yellow-500 hover:bg-yellow-600 text-white py-2 rounded-lg text-sm">
-              Edit
+          {% if role == 'admin' or role == 'organizer' %}
+            <div class="flex gap-2 mt-5">
+              <button onclick="openEditEventModal(this)"
+                data-title="{{ event.title|escapejs }}"
+                data-date="{{ event.date }}"
+                data-time="{{ event.time }}"
+                data-venue="{{ event.venue|escapejs }}"
+                data-desc="{{ event.description|default:''|escapejs }}"
+                class="w-full bg-yellow-500 hover:bg-yellow-600 text-white py-2 rounded-lg text-sm">
+                Edit
+              </button>
+            </div>
+          {% else %}
+            <button class="w-full mt-5 bg-primary hover:bg-primaryHover text-white py-2 rounded-lg text-sm">
+              Beli Tiket
             </button>
-
-            <button onclick="openDeleteEventModal()"
-              class="flex-1 bg-red-600 hover:bg-red-700 text-white py-2 rounded-lg text-sm">
-              Hapus
-            </button>
-          </div>
+          {% endif %}
         </div>
       </div>
     {% empty %}
@@ -77,7 +83,6 @@
   </div>
 </div>
 
-<!-- Modal Create / Edit Event -->
 <div id="eventModal" class="hidden fixed inset-0 bg-black/60 z-50 flex items-center justify-center px-4">
   <div class="bg-white text-gray-900 rounded-2xl w-full max-w-5xl p-8 relative max-h-[90vh] overflow-y-auto">
     <button onclick="closeEventModal()" class="absolute top-5 right-5 text-gray-400 hover:text-gray-700">
@@ -119,11 +124,12 @@
           <label class="block text-sm font-bold text-gray-500 mb-2">
             VENUE (VENUE_ID)
           </label>
-          <select class="w-full border border-gray-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-blue-500">
-            <option>Jakarta Convention Center</option>
-            <option>Taman Impian Jaya Ancol</option>
-            <option>Bandung Hall Center</option>
-          </select>
+            <select id="eventVenueInput"
+              class="w-full border border-gray-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-blue-500">
+              <option value="Jakarta Convention Center">Jakarta Convention Center</option>
+              <option value="Taman Impian Jaya Ancol">Taman Impian Jaya Ancol</option>
+              <option value="Bandung Hall Center">Bandung Hall Center</option>
+            </select>
         </div>
 
         <div>
@@ -201,33 +207,13 @@
           class="border border-gray-200 rounded-xl py-3 font-semibold hover:bg-gray-50">
           Batal
         </button>
-
+        
         <button id="eventSubmitBtn" type="submit"
           class="bg-primary hover:bg-primaryHover text-white rounded-xl py-3 font-semibold">
           Buat Acara
         </button>
       </div>
     </form>
-  </div>
-</div>
-
-<!-- Modal Delete Event -->
-<div id="deleteEventModal" class="hidden fixed inset-0 bg-black/60 z-50 flex items-center justify-center px-4">
-  <div class="bg-white text-gray-900 rounded-2xl w-full max-w-md p-6">
-    <h2 class="text-xl font-bold text-red-600 mb-2">Hapus Event</h2>
-    <p class="text-gray-600 mb-6">
-      Apakah Anda yakin ingin menghapus event ini? Tindakan ini tidak dapat dibatalkan.
-    </p>
-
-    <div class="flex justify-end gap-3">
-      <button onclick="closeDeleteEventModal()" class="border px-4 py-2 rounded-lg hover:bg-gray-50">
-        Batal
-      </button>
-
-      <button class="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg">
-        Hapus
-      </button>
-    </div>
   </div>
 </div>
 
@@ -244,29 +230,25 @@
     document.getElementById("eventModal").classList.remove("hidden");
   }
 
-  function openEditEventModal() {
+  function openEditEventModal(btn) {
     document.getElementById("eventModalTitle").innerText = "Edit Acara";
     document.getElementById("eventSubmitBtn").innerText = "Simpan";
 
-    document.getElementById("eventTitleInput").value = "Konser Melodi Senja";
-    document.getElementById("eventDateInput").value = "2026-05-15";
-    document.getElementById("eventTimeInput").value = "19:00";
-    document.getElementById("eventDescriptionInput").value =
-      "Nikmati suasana senja dengan alunan musik indie yang menenangkan.";
+    document.getElementById("eventTitleInput").value = btn.dataset.title || "";
+    document.getElementById("eventDateInput").value = btn.dataset.date || "";
+    document.getElementById("eventTimeInput").value = btn.dataset.time || "";
+    document.getElementById("eventDescriptionInput").value = btn.dataset.desc || "";
+
+    const venueSelect = document.getElementById("eventVenueInput");
+    if (venueSelect) {
+      venueSelect.value = btn.dataset.venue || "";
+    }
 
     document.getElementById("eventModal").classList.remove("hidden");
   }
 
   function closeEventModal() {
     document.getElementById("eventModal").classList.add("hidden");
-  }
-
-  function openDeleteEventModal() {
-    document.getElementById("deleteEventModal").classList.remove("hidden");
-  }
-
-  function closeDeleteEventModal() {
-    document.getElementById("deleteEventModal").classList.add("hidden");
   }
 
   function addTicketCategory() {

@@ -12,26 +12,28 @@
       <p class="text-gray-400 mt-1">Kelola data venue untuk acara TikTakTuk.</p>
     </div>
 
+    {% if role != 'customer' %}
     <button onclick="openVenueModal('Tambah Venue Baru', 'Tambah')"
       class="bg-primary hover:bg-primaryHover text-white px-4 py-2 rounded-lg text-sm font-medium">
       + Tambah Venue
     </button>
+    {% endif %}
   </div>
 
   <div class="grid grid-cols-1 md:grid-cols-3 gap-5 mb-6">
   <div class="bg-dark-card border border-dark-border rounded-xl p-6">
     <p class="text-xs font-bold text-gray-400 uppercase">Total Venue</p>
-    <h2 class="text-3xl font-bold text-white mt-2">3</h2>
+    <h2 class="text-3xl font-bold text-white mt-2">{{ venues|length }}</h2>
   </div>
 
   <div class="bg-dark-card border border-dark-border rounded-xl p-6">
     <p class="text-xs font-bold text-gray-400 uppercase">Reserved Seating</p>
-    <h2 class="text-3xl font-bold text-white mt-2">2</h2>
+    <h2 class="text-3xl font-bold text-white mt-2">{{ reserved_count }}</h2>
   </div>
 
   <div class="bg-dark-card border border-dark-border rounded-xl p-6">
     <p class="text-xs font-bold text-gray-400 uppercase">Total Kapasitas</p>
-    <h2 class="text-3xl font-bold text-white mt-2">2,300</h2>
+    <h2 class="text-3xl font-bold text-white mt-2">{{ total_capacity }}</h2>
   </div>
 </div>
 
@@ -58,14 +60,16 @@
 </div>
 
   <div class="bg-dark-card border border-dark-border rounded-xl overflow-hidden">
-    <table class="w-full text-sm">
+    <table class="w-full text-sm table-fixed">
       <thead class="bg-slate-800 text-gray-300">
         <tr>
           <th class="text-left px-6 py-4">Nama Venue</th>
           <th class="text-left px-6 py-4">Kota</th>
           <th class="text-left px-6 py-4">Kapasitas</th>
           <th class="text-left px-6 py-4">Reserved Seating</th>
-          <th class="text-right px-6 py-4">Aksi</th>
+          {% if role == 'admin' or role == 'organizer' %}
+            <th class="text-right px-6 py-4">Aksi</th>
+          {% endif %}
         </tr>
       </thead>
 
@@ -97,8 +101,15 @@
             {% endif %}
           </td>
 
+          {% if role == 'admin' or role == 'organizer' %}
           <td class="px-6 py-4 text-right">
-            <button onclick="openVenueModal('Edit Venue', 'Simpan')"
+            <button 
+              onclick="openEditVenueModal(this)"
+              data-name="{{ venue.name }}"
+              data-address="{{ venue.address }}"
+              data-city="{{ venue.city }}"
+              data-capacity="{{ venue.capacity }}"
+              data-reserved="{{ venue.has_reserved_seating|yesno:'true,false' }}"
               class="bg-yellow-500 hover:bg-yellow-600 text-white px-3 py-1 rounded text-xs mr-2">
               Edit
             </button>
@@ -108,6 +119,7 @@
               Hapus
             </button>
           </td>
+          {% endif %}
         </tr>
         {% empty %}
         <tr>
@@ -132,28 +144,28 @@
     <form class="space-y-4">
       <div>
         <label class="block text-sm font-semibold mb-1">Nama Venue</label>
-        <input type="text" class="w-full border rounded-lg px-3 py-2" placeholder="Masukkan nama venue">
+        <input id="venue_name" type="text" class="w-full border rounded-lg px-3 py-2" placeholder="Masukkan nama venue">
       </div>
 
       <div>
         <label class="block text-sm font-semibold mb-1">Alamat</label>
-        <textarea class="w-full border rounded-lg px-3 py-2" rows="3" placeholder="Masukkan alamat venue"></textarea>
+        <textarea id="venue_address" class="w-full border rounded-lg px-3 py-2" rows="3"></textarea>
       </div>
 
       <div class="grid grid-cols-2 gap-4">
         <div>
           <label class="block text-sm font-semibold mb-1">Kota</label>
-          <input type="text" class="w-full border rounded-lg px-3 py-2" placeholder="Jakarta">
+          <input id="venue_city" type="text" class="w-full border rounded-lg px-3 py-2">
         </div>
 
         <div>
           <label class="block text-sm font-semibold mb-1">Kapasitas</label>
-          <input type="number" class="w-full border rounded-lg px-3 py-2" placeholder="1000">
+          <input id="venue_capacity" type="number" class="w-full border rounded-lg px-3 py-2">
         </div>
       </div>
 
       <label class="flex items-center gap-2 text-sm">
-        <input type="checkbox">
+        <input id="venue_reserved" type="checkbox">
         <span>Has Reserved Seating</span>
       </label>
 
@@ -196,6 +208,13 @@
   function openVenueModal(title, buttonText) {
     document.getElementById("venueModalTitle").innerText = title;
     document.getElementById("venueSubmitBtn").innerText = buttonText;
+
+    document.getElementById("venue_name").value = "";
+    document.getElementById("venue_address").value = "";
+    document.getElementById("venue_city").value = "";
+    document.getElementById("venue_capacity").value = "";
+    document.getElementById("venue_reserved").checked = false;
+
     document.getElementById("venueModal").classList.remove("hidden");
   }
 
@@ -209,6 +228,24 @@
 
   function closeDeleteModal() {
     document.getElementById("deleteModal").classList.add("hidden");
+  }
+  function openEditVenueModal(btn) {
+    const name = btn.dataset.name;
+    const address = btn.dataset.address;
+    const city = btn.dataset.city;
+    const capacity = btn.dataset.capacity;
+    const reserved = btn.dataset.reserved === "true";
+
+    document.getElementById("venueModalTitle").innerText = "Edit Venue";
+    document.getElementById("venueSubmitBtn").innerText = "Simpan";
+
+    document.getElementById("venue_name").value = name;
+    document.getElementById("venue_address").value = address;
+    document.getElementById("venue_city").value = city;
+    document.getElementById("venue_capacity").value = capacity;
+    document.getElementById("venue_reserved").checked = reserved;
+
+    document.getElementById("venueModal").classList.remove("hidden");
   }
 </script>
 {% endblock %}

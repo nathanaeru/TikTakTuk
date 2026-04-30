@@ -15,9 +15,8 @@ urlpatterns = [
     path('dashboard/<uuid:user_id>/', views.dashboard_pengguna, name='dashboard_user'),
     path('dashboard/<uuid:user_id>/<str:page>/', views.dashboard_pengguna, name='dashboard_page'),
     path('ticket/', views.ticket_list, name='ticket_list_no_id'),
-    path("", views.home_view, name="home"),
-    path("venue/", views.venue_list, name="venue_list"),
-    path("event/", views.event_list, name="event_list"),
-    path("my-event/", views.my_event_list, name="my_event_list"),
-    path("admin-event/", views.admin_event_list, name="admin_event_list"),
+    path('venue/', views.venue_list, name='venue_list'),
+    path('event/', views.event_list, name='event_list'),
+    path('my-event/', views.my_event_list, name='my_event_list'),
+    path('admin-event/', views.admin_event_list, name='admin_event_list'),
 ]
