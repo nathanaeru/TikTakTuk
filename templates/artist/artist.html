@@ -11,7 +11,9 @@
         <h1 class="text-3xl font-bold text-white mb-2">Daftar Artis</h1>
         <p class="text-gray-400">Kelola artis yang ada di platform TikTakTuk</p>
       </div>
-      <button id="btnOpenAddModal" class="bg-primary hover:bg-primaryHover text-white font-medium px-5 py-2.5 rounded-lg transition-colors flex items-center gap-2"><span>+</span> Tambah Artis</button>
+      {% if request.session.role == 'administrator' %}
+        <button id="btnOpenAddModal" class="bg-primary hover:bg-primaryHover text-white font-medium px-5 py-2.5 rounded-lg transition-colors flex items-center gap-2"><span>+</span> Tambah Artis</button>
+      {% endif %}
     </div>
 
     <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
@@ -32,7 +34,9 @@
             <tr>
               <th class="px-6 py-4 font-medium">Nama Artis</th>
               <th class="px-6 py-4 font-medium">Genre</th>
-              <th class="px-6 py-4 font-medium text-right">Aksi</th>
+              {% if request.session.role == 'administrator' %}
+                <th class="px-6 py-4 font-medium text-right">Aksi</th>
+              {% endif %}
             </tr>
           </thead>
           <tbody class="divide-y divide-dark-border">
@@ -43,10 +47,12 @@
               <td class="px-6 py-4">
                 <span class="text-green-400 bg-green-400/10 px-2 py-1 rounded text-xs">Indie Folk</span>
               </td>
-              <td class="px-6 py-4 text-right space-x-3">
-                <button class="btn-edit text-gray-400 hover:text-white transition-colors">Edit</button>
-                <button class="btn-delete text-red-500 hover:text-red-400 transition-colors">Hapus</button>
-              </td>
+              {% if request.session.role == 'administrator' %}
+                <td class="px-6 py-4 text-right space-x-3">
+                  <button class="btn-edit text-gray-400 hover:text-white transition-colors">Edit</button>
+                  <button class="btn-delete text-red-500 hover:text-red-400 transition-colors">Hapus</button>
+                </td>
+              {% endif %}
             </tr>
             <tr class="hover:bg-dark-bg/50 transition-colors">
               <td class="px-6 py-4 font-medium text-white flex items-center gap-3">
@@ -55,10 +61,12 @@
               <td class="px-6 py-4">
                 <span class="text-blue-400 bg-blue-400/10 px-2 py-1 rounded text-xs">Indie Pop</span>
               </td>
-              <td class="px-6 py-4 text-right space-x-3">
-                <button class="btn-edit text-gray-400 hover:text-white transition-colors">Edit</button>
-                <button class="btn-delete text-red-500 hover:text-red-400 transition-colors">Hapus</button>
-              </td>
+              {% if request.session.role == 'administrator' %}
+                <td class="px-6 py-4 text-right space-x-3">
+                  <button class="btn-edit text-gray-400 hover:text-white transition-colors">Edit</button>
+                  <button class="btn-delete text-red-500 hover:text-red-400 transition-colors">Hapus</button>
+                </td>
+              {% endif %}
             </tr>
           </tbody>
         </table>
