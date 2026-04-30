@@ -1,35 +1,49 @@
 {% extends 'base.html' %}
 
 {% block content %}
-  <div class="min-h-screen bg-[#0F172A] text-slate-200 font-sans">
+
+<div class="min-h-screen bg-[#0F172A] text-slate-200 font-sans">
     <div class="max-w-7xl mx-auto px-8 py-10">
-      <div class="mb-8 flex justify-between items-start">
-        <div>
-          <h1 class="text-4xl font-black text-white">Seat Management</h1>
+        
+        
+        <div class="mb-8 flex justify-between items-start">
+            <div>
+                <h1 class="text-4xl font-black text-white">Seat Management</h1>
+                <p class="text-slate-400 mt-1">Status Akses: <span class="text-blue-400 font-bold uppercase">{{ role }}</span></p>
+            </div>
+            
+           
+            <button onclick="handleCreate()" class="bg-blue-600 hover:bg-blue-500 text-white px-8 py-4 rounded-2xl font-black transition-all shadow-lg shadow-blue-900/20">
+                Tambah Kursi Baru
+            </button>
         </div>
 
-        {% if role == 'admin' or role == 'organizer' %}
-          <button onclick="openModal()" class="bg-blue-600 hover:bg-blue-500 text-white px-8 py-4 rounded-2xl font-black transition-all">Tambah Kursi Baru</button>
-        {% endif %}
-      </div>
-
-      <div class="mb-10 p-8 bg-slate-900/50 border border-slate-800 rounded-[2.5rem] relative overflow-hidden">
-        <div class="relative z-10">
-          <span class="bg-blue-500/10 text-blue-400 border border-blue-500/20 px-4 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest mb-4 inline-block">Infrastructure Console</span>
-          <h2 class="text-3xl font-black text-white">Inventory System</h2>
-          <p class="text-slate-400 text-sm mt-2">Kelola ketersediaan tempat duduk untuk seluruh venue terdaftar.</p>
+       
+        <div class="mb-10 p-8 bg-slate-900/50 border border-slate-800 rounded-[2.5rem] relative overflow-hidden">
+            <div class="relative z-10">
+                <span class="bg-blue-500/10 text-blue-400 border border-blue-500/20 px-4 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest mb-4 inline-block">Infrastructure Console</span>
+                <h2 class="text-3xl font-black text-white">Inventory System</h2>
+                <p class="text-slate-400 text-sm mt-2">Kelola ketersediaan tempat duduk untuk seluruh venue terdaftar secara real-time.</p>
+            </div>
+            <div class="absolute -right-10 -top-10 w-40 h-40 bg-blue-600/10 rounded-full blur-3xl"></div>
         </div>
         <div class="absolute -right-10 -top-10 w-40 h-40 bg-blue-600/10 rounded-full blur-3xl"></div>
       </div>
 
-      <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
-        <div class="bg-slate-900/50 p-6 rounded-3xl border border-slate-800 shadow-lg group hover:border-blue-500/50 transition-all text-center">
-          <span class="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-1">Total Seats</span>
-          <span class="text-3xl font-black text-white">{{ total_kursi }}</span>
-        </div>
-        <div class="bg-slate-900/50 p-6 rounded-3xl border border-slate-800 shadow-lg group hover:border-emerald-500/50 transition-all text-center">
-          <span class="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-1">Tersedia</span>
-          <span class="text-3xl font-black text-emerald-500">{{ total_tersedia }}</span>
+        
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
+            <div class="bg-slate-900/50 p-6 rounded-3xl border border-slate-800 shadow-lg text-center">
+                <span class="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-1">Total Kursi</span>
+                <span class="text-3xl font-black text-white">{{ total_kursi }}</span>
+            </div>
+            <div class="bg-slate-900/50 p-6 rounded-3xl border border-slate-800 shadow-lg text-center">
+                <span class="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-1">Tersedia</span>
+                <span class="text-3xl font-black text-emerald-500">{{ total_tersedia }}</span>
+            </div>
+            <div class="bg-slate-900/50 p-6 rounded-3xl border border-slate-800 shadow-lg text-center">
+                <span class="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-1">Terisi</span>
+                <span class="text-3xl font-black text-orange-500">{{ total_terisi }}</span>
+            </div>
         </div>
         <div class="bg-slate-900/50 p-6 rounded-3xl border border-slate-800 shadow-lg group hover:border-orange-500/50 transition-all text-center">
           <span class="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-1">Terisi (Ticketed)</span>
@@ -37,159 +51,175 @@
         </div>
       </div>
 
-      <div class="bg-slate-900/80 rounded-[2.5rem] border border-slate-800 overflow-hidden shadow-xl">
-        <table class="w-full text-left border-collapse">
-          <thead>
-            <tr class="bg-slate-800/50 text-slate-400 text-[10px] uppercase tracking-widest font-bold">
-              <th class="px-8 py-6">Section</th>
-              <th class="px-8 py-6">Baris</th>
-              <th class="px-8 py-6">No. Kursi</th>
-              <th class="px-8 py-6">Venue</th>
-              <th class="px-8 py-6 text-center">Status</th>
-              {% if role == 'admin' or role == 'organizer' %}
-                <th class="px-8 py-6 text-right">Aksi</th>
-              {% endif %}
-            </tr>
-          </thead>
-          <tbody class="divide-y divide-slate-800">
-            {% for s in seats %}
-              <tr class="hover:bg-slate-800/30 transition-colors group">
-                <td class="px-8 py-5 font-black text-white group-hover:text-blue-400">{{ s.section }}</td>
-                <td class="px-8 py-5 text-slate-300 font-medium">{{ s.row }}</td>
-                <td class="px-8 py-5 text-slate-300">{{ s.number }}</td>
-                <td class="px-8 py-5 text-slate-400 text-sm italic">{{ s.venue }}</td>
-                <td class="px-8 py-5 text-center">
-                  {% if s.status == 'TERISI' %}
-                    <span class="bg-orange-500/10 text-orange-400 text-[9px] px-3 py-1 rounded-full font-bold border border-orange-500/20">TERISI</span>
-                  {% else %}
-                    <span class="bg-emerald-500/10 text-emerald-400 text-[9px] px-3 py-1 rounded-full font-bold border border-emerald-500/20">TERSEDIA</span>
-                  {% endif %}
-                </td>
-
-                {% if role == 'admin' or role == 'organizer' %}
-                  <td class="px-8 py-5 text-right">
-                    <div class="flex justify-end gap-3">
-                      <button onclick="openUpdateModal('{{ s.seat_id }}', '{{ s.venue_id }}', '{{ s.section }}', '{{ s.row }}', '{{ s.number }}')" class="p-2 bg-slate-800 hover:bg-blue-600/20 hover:text-blue-400 rounded-xl transition-all">
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" stroke-width="2" />
-                        </svg>
-                      </button>
-
-                      {% if role == 'admin' %}
-                        {% if s.status == 'TERISI' %}
-                          <button class="p-2 bg-slate-800/50 text-slate-600 rounded-xl cursor-not-allowed opacity-50" title="Kursi terisi tidak bisa dihapus">
-                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" stroke-width="2" />
-                            </svg>
-                          </button>
-                        {% else %}
-                          <button onclick="confirmDelete('{{ s.seat_id }}')" class="p-2 bg-red-500/10 hover:bg-red-500/20 text-red-500 rounded-xl transition-all">
-                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" stroke-width="2" />
-                            </svg>
-                          </button>
-                        {% endif %}
-                      {% endif %}
-                    </div>
-                  </td>
-                {% endif %}
-              </tr>
-            {% empty %}
-              <tr>
-                <td colspan="6" class="text-center py-20 text-slate-500">Tidak ada data kursi.</td>
-              </tr>
-            {% endfor %}
-          </tbody>
-        </table>
-      </div>
+        
+        <div class="bg-slate-900/80 rounded-[2.5rem] border border-slate-800 overflow-hidden shadow-xl">
+            <table class="w-full text-left border-collapse">
+                <thead>
+                    <tr class="bg-slate-800/50 text-slate-400 text-[10px] uppercase tracking-widest font-bold">
+                        <th class="px-8 py-6">Section</th>
+                        <th class="px-8 py-6">Baris</th>
+                        <th class="px-8 py-6">No. Kursi</th>
+                        <th class="px-8 py-6">Venue</th>
+                        <th class="px-8 py-6 text-center">Status</th>
+                        <th class="px-8 py-6 text-right">Aksi</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-800">
+                    {% for s in seats %}
+                    <tr class="hover:bg-slate-800/30 transition-colors group">
+                        <td class="px-8 py-5 font-black text-white group-hover:text-blue-400">{{ s.section }}</td> 
+                        <td class="px-8 py-5 text-slate-300">{{ s.row }}</td> 
+                        <td class="px-8 py-5 text-slate-300">{{ s.number }}</td> 
+                        <td class="px-8 py-5 text-slate-400 text-sm italic">{{ s.venue }}</td> 
+                        <td class="px-8 py-5 text-center">
+                            {% if s.status == 'TERISI' %}
+                            <span class="bg-orange-500/10 text-orange-400 text-[9px] px-3 py-1 rounded-full font-bold border border-orange-500/20">TERISI</span>
+                            {% else %}
+                            <span class="bg-emerald-500/10 text-emerald-400 text-[9px] px-3 py-1 rounded-full font-bold border border-emerald-500/20">TERSEDIA</span>
+                            {% endif %}
+                        </td>
+                        <td class="px-8 py-5 text-right">
+                            <div class="flex justify-end gap-3">
+                                
+                                <button onclick="handleEdit('{{ s.seat_id }}', '{{ s.venue_id }}', '{{ s.section }}', '{{ s.row }}', '{{ s.number }}')" 
+                                        class="p-2 bg-slate-800 hover:bg-blue-600/20 hover:text-blue-400 rounded-xl transition-all">
+                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" stroke-width="2"/></svg>
+                                </button>
+                                
+                                
+                                {% if s.status == 'TERISI' %}
+                                <button class="p-2 bg-slate-800/50 text-slate-600 rounded-xl cursor-not-allowed opacity-50" title="Kursi terisi tidak bisa dihapus">
+                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" stroke-width="2"/></svg>
+                                </button>
+                                {% else %}
+                                <button onclick="handleDelete('{{ s.seat_id }}')" 
+                                        class="p-2 bg-red-500/10 hover:bg-red-500/20 text-red-500 rounded-xl transition-all">
+                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" stroke-width="2"/></svg>
+                                </button>
+                                {% endif %}
+                            </div>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="6" class="text-center py-20 text-slate-500 italic">Data kursi kosong.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
     </div>
   </div>
 
-  <div id="createSeatModal" class="hidden fixed inset-0 z-50 bg-[#0F172A]/95 backdrop-blur-sm p-4 flex items-center justify-center">
-    <div class="bg-slate-900 border border-slate-800 w-full max-w-lg rounded-[3rem] p-10 shadow-2xl relative">
-      <h2 class="text-3xl font-black text-white mb-8">Tambah Kursi</h2>
-      <form method="POST" action="{% url 'create_seat' %}" class="space-y-6">
-        {% csrf_token %}
-        <div>
-          <label class="block text-[10px] font-bold text-slate-500 uppercase mb-3 ml-2 tracking-widest">Venue</label>
-          <select name="venue" required class="w-full bg-slate-800 border-slate-700 text-white rounded-2xl p-4 outline-none focus:ring-2 focus:ring-blue-500">
-            <option value="" selected disabled>— Pilih Venue —</option>
-          </select>
-        </div>
-        <div class="grid grid-cols-2 gap-4">
-          <div>
-            <label class="block text-[10px] font-bold text-slate-500 uppercase mb-3 ml-2 tracking-widest">Section</label>
-            <input type="text" name="section" placeholder="cth: VIP" required class="w-full bg-slate-800 border border-slate-700 text-white rounded-2xl p-4 outline-none focus:ring-2 focus:ring-blue-500" />
-          </div>
-          <div>
-            <label class="block text-[10px] font-bold text-slate-500 uppercase mb-3 ml-2 tracking-widest">Baris</label>
-            <input type="text" name="row" placeholder="cth: A" required class="w-full bg-slate-800 border border-slate-700 text-white rounded-2xl p-4 outline-none focus:ring-2 focus:ring-blue-500" />
-          </div>
-        </div>
-        <div>
-          <label class="block text-[10px] font-bold text-slate-500 uppercase mb-3 ml-2 tracking-widest">No. Kursi</label>
-          <input type="number" name="seat_number" placeholder="cth: 1" required class="w-full bg-slate-800 border border-slate-700 text-white rounded-2xl p-4 outline-none focus:ring-2 focus:ring-blue-500" />
-        </div>
-        <div class="flex gap-4 pt-6">
-          <button type="button" onclick="closeModal()" class="flex-1 px-6 py-4 rounded-2xl font-bold text-slate-400 hover:bg-slate-800 transition-all text-[10px] tracking-widest uppercase text-center">Batal</button>
-          <button type="submit" class="flex-1 bg-blue-600 hover:bg-blue-500 text-white px-6 py-4 rounded-2xl font-black transition-all text-[10px] tracking-widest uppercase shadow-lg shadow-blue-900/40">Tambah</button>
-        </div>
-      </form>
+
+<div id="createSeatModal" class="hidden fixed inset-0 z-50 bg-[#0F172A]/95 backdrop-blur-sm p-4 flex items-center justify-center">
+    <div class="bg-slate-900 border border-slate-800 w-full max-w-lg rounded-[3rem] p-10 shadow-2xl">
+        <h2 class="text-3xl font-black text-white mb-8">Tambah Kursi</h2>
+        <form method="POST" action="{% url 'create_seat' user_id=user_id %}" class="space-y-6">
+            {% csrf_token %}
+            <div>
+                <label class="block text-[10px] font-bold text-slate-500 uppercase mb-3 ml-2 tracking-widest">Venue</label>
+                <select name="venue" required class="w-full bg-slate-800 border border-slate-700 text-white rounded-2xl p-4 outline-none focus:ring-2 focus:ring-blue-500 transition-all cursor-pointer">
+                    <option value="" selected disabled>— Pilih Venue —</option>
+                </select>
+            </div>
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-[10px] font-bold text-slate-500 uppercase mb-3 ml-2 tracking-widest">Section</label>
+                    <input type="text" name="section" placeholder="VIP" required class="w-full bg-slate-800 border border-slate-700 text-white rounded-2xl p-4 outline-none focus:ring-2 focus:ring-blue-500">
+                </div>
+                <div>
+                    <label class="block text-[10px] font-bold text-slate-500 uppercase mb-3 ml-2 tracking-widest">Baris</label>
+                    <input type="text" name="row" placeholder="A" required class="w-full bg-slate-800 border border-slate-700 text-white rounded-2xl p-4 outline-none focus:ring-2 focus:ring-blue-500">
+                </div>
+            </div>
+            <div>
+                <label class="block text-[10px] font-bold text-slate-500 uppercase mb-3 ml-2 tracking-widest">No. Kursi</label>
+                <input type="number" name="seat_number" placeholder="1" required class="w-full bg-slate-800 border border-slate-700 text-white rounded-2xl p-4 outline-none focus:ring-2 focus:ring-blue-500">
+            </div>
+            <div class="flex gap-4 pt-6">
+                <button type="button" onclick="closeModal()" class="flex-1 px-6 py-4 rounded-2xl font-bold text-slate-400 hover:bg-slate-800 transition-all text-[10px] tracking-widest uppercase">Batal</button>
+                <button type="submit" class="flex-1 bg-blue-600 hover:bg-blue-500 text-white px-6 py-4 rounded-2xl font-black transition-all text-[10px] tracking-widest uppercase shadow-lg shadow-blue-900/40">Simpan Data</button>
+            </div>
+        </form>
     </div>
   </div>
 
-  <div id="updateSeatModal" class="hidden fixed inset-0 z-50 bg-[#0F172A]/95 backdrop-blur-sm p-4 flex items-center justify-center">
-    <div class="bg-slate-900 border border-slate-800 w-full max-w-lg rounded-[3rem] p-10 shadow-2xl relative">
-      <h2 class="text-3xl font-black text-white mb-8">Edit Kursi</h2>
-      <form id="updateForm" method="POST" class="space-y-6">
-        {% csrf_token %}
-        <div>
-          <label class="block text-[10px] font-bold text-slate-500 uppercase mb-3 ml-2 tracking-widest">Venue</label>
-          <select name="venue" id="upd_venue" class="w-full bg-slate-800 border-slate-700 text-white rounded-2xl p-4 outline-none focus:ring-2 focus:ring-blue-500"></select>
-        </div>
-        <div class="grid grid-cols-2 gap-4">
-          <div>
-            <label class="block text-[10px] font-bold text-slate-500 uppercase mb-3 ml-2 tracking-widest">Section</label>
-            <input type="text" name="section" id="upd_section" class="w-full bg-slate-800 border border-slate-700 text-white rounded-2xl p-4 outline-none focus:ring-2 focus:ring-blue-500" />
-          </div>
-          <div>
-            <label class="block text-[10px] font-bold text-slate-500 uppercase mb-3 ml-2 tracking-widest">Baris</label>
-            <input type="text" name="row" id="upd_row" class="w-full bg-slate-800 border border-slate-700 text-white rounded-2xl p-4 outline-none focus:ring-2 focus:ring-blue-500" />
-          </div>
-        </div>
-        <div>
-          <label class="block text-[10px] font-bold text-slate-500 uppercase mb-3 ml-2 tracking-widest">No. Kursi</label>
-          <input type="number" name="seat_number" id="upd_number" class="w-full bg-slate-800 border border-slate-700 text-white rounded-2xl p-4 outline-none focus:ring-2 focus:ring-blue-500" />
-        </div>
-        <div class="flex gap-4 pt-6">
-          <button type="button" onclick="closeUpdateModal()" class="flex-1 px-6 py-4 rounded-2xl font-bold text-slate-400 hover:bg-slate-800 transition-all text-[10px] tracking-widest uppercase text-center">Batal</button>
-          <button type="submit" class="flex-1 bg-blue-600 hover:bg-blue-500 text-white px-6 py-4 rounded-2xl font-black transition-all text-[10px] tracking-widest uppercase shadow-lg shadow-blue-900/40">Simpan</button>
-        </div>
-      </form>
+
+<div id="updateSeatModal" class="hidden fixed inset-0 z-50 bg-[#0F172A]/95 backdrop-blur-sm p-4 flex items-center justify-center">
+    <div class="bg-slate-900 border border-slate-800 w-full max-w-lg rounded-[3rem] p-10 shadow-2xl">
+        <h2 class="text-3xl font-black text-white mb-8">Edit Detail Kursi</h2>
+        <form id="updateForm" method="POST" class="space-y-6">
+            {% csrf_token %}
+            <div>
+                <label class="block text-[10px] font-bold text-slate-500 uppercase mb-3 ml-2 tracking-widest">Venue Terpilih</label>
+                <select name="venue" id="upd_venue" class="w-full bg-slate-800 border border-slate-700 text-white rounded-2xl p-4 outline-none focus:ring-2 focus:ring-blue-500"></select>
+            </div>
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-[10px] font-bold text-slate-500 uppercase mb-3 ml-2 tracking-widest">Section</label>
+                    <input type="text" name="section" id="upd_section" class="w-full bg-slate-800 border border-slate-700 text-white rounded-2xl p-4 outline-none focus:ring-2 focus:ring-blue-500">
+                </div>
+                <div>
+                    <label class="block text-[10px] font-bold text-slate-500 uppercase mb-3 ml-2 tracking-widest">Baris</label>
+                    <input type="text" name="row" id="upd_row" class="w-full bg-slate-800 border border-slate-700 text-white rounded-2xl p-4 outline-none focus:ring-2 focus:ring-blue-500">
+                </div>
+            </div>
+            <div>
+                <label class="block text-[10px] font-bold text-slate-500 uppercase mb-3 ml-2 tracking-widest">No. Kursi</label>
+                <input type="number" name="seat_number" id="upd_number" class="w-full bg-slate-800 border border-slate-700 text-white rounded-2xl p-4 outline-none focus:ring-2 focus:ring-blue-500">
+            </div>
+            <div class="flex gap-4 pt-6">
+                <button type="button" onclick="closeUpdateModal()" class="flex-1 px-6 py-4 rounded-2xl font-bold text-slate-400 hover:bg-slate-800 transition-all text-[10px] tracking-widest uppercase">Batal</button>
+                <button type="submit" class="flex-1 bg-blue-600 hover:bg-blue-500 text-white px-6 py-4 rounded-2xl font-black transition-all text-[10px] tracking-widest uppercase shadow-lg shadow-blue-900/40">Perbarui</button>
+            </div>
+        </form>
     </div>
   </div>
 
-  <div id="deleteModal" class="hidden fixed inset-0 z-[100] bg-black/60 backdrop-blur-sm p-4 flex items-center justify-center font-sans">
-    <div class="bg-white w-full max-w-md rounded-2xl p-8 shadow-2xl transform transition-all scale-100">
-      <div class="flex justify-between items-start mb-4">
-        <h2 class="text-xl font-bold text-red-600">Hapus Kursi</h2>
-        <button onclick="closeDeleteModal()" class="text-slate-400 hover:text-slate-600 transition-colors">
-          <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path d="M6 18L18 6M6 6l12 12" stroke-width="2" />
-          </svg>
-        </button>
-      </div>
-      <p class="text-slate-600 mb-8 font-medium italic">Apakah Anda yakin ingin menghapus kursi ini? Tindakan ini tidak dapat dibatalkan.</p>
-      <div class="flex justify-end gap-3 font-bold">
-        <button onclick="closeDeleteModal()" class="px-6 py-2 rounded-lg text-slate-500 border border-slate-200 hover:bg-slate-50 transition-all">Batal</button>
-        <a id="confirmDeleteBtn" href="#" class="px-6 py-2 rounded-lg text-white bg-red-600 hover:bg-red-700 transition-all shadow-lg shadow-red-200">Hapus</a>
-      </div>
+
+<div id="deleteModal" class="hidden fixed inset-0 z-[100] bg-black/60 backdrop-blur-sm p-4 flex items-center justify-center">
+    <div class="bg-white w-full max-w-md rounded-2xl p-8 shadow-2xl">
+        <div class="flex justify-between items-start mb-4">
+            <h2 class="text-xl font-bold text-red-600">Konfirmasi Hapus</h2>
+            <button onclick="closeDeleteModal()" class="text-slate-400 hover:text-slate-600 transition-colors">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M6 18L18 6M6 6l12 12" stroke-width="2"/></svg>
+            </button>
+        </div>
+        <p class="text-slate-600 mb-8 font-medium">Apakah Anda yakin ingin menghapus data kursi ini secara permanen?</p>
+        <div class="flex justify-end gap-3 font-bold">
+            <button onclick="closeDeleteModal()" class="px-6 py-2 rounded-lg text-slate-500 border border-slate-200 hover:bg-slate-50 transition-all">Batal</button>
+            <a id="confirmDeleteBtn" href="#" class="px-6 py-2 rounded-lg text-white bg-red-600 hover:bg-red-700 transition-all shadow-lg shadow-red-200">Hapus Sekarang</a>
+        </div>
     </div>
   </div>
 
-  <script>
+
+<script>
     const venuesData = {{ venues_data|safe }};
+    const userRole = "{{ role }}";
 
+    
+    function checkPermission() {
+        if (userRole === 'admin' || userRole === 'organizer') {
+            return true;
+        }
+        alert("Akses Ditolak! Hanya Admin atau Organizer yang dapat mengelola kursi.");
+        return false;
+    }
+
+  
+    function handleCreate() {
+        if (checkPermission()) openModal();
+    }
+
+    function handleEdit(id, venueId, section, row, num) {
+        if (checkPermission()) openUpdateModal(id, venueId, section, row, num);
+    }
+
+    function handleDelete(id) {
+        if (checkPermission()) confirmDelete(id);
+    }
+
+   
     function populateVenueSelect(selectElement, selectedId = null) {
         selectElement.innerHTML = '<option value="" disabled>— Pilih Venue —</option>';
         venuesData.forEach(v => {
@@ -201,11 +231,10 @@
         });
     }
 
-    // Modal Create
+    
     function openModal() {
         const modal = document.getElementById('createSeatModal');
-        const select = modal.querySelector('select[name="venue"]');
-        populateVenueSelect(select);
+        populateVenueSelect(modal.querySelector('select[name="venue"]'));
         modal.classList.remove('hidden');
         document.body.style.overflow = 'hidden';
     }
@@ -215,19 +244,14 @@
         document.body.style.overflow = 'auto';
     }
 
-    // Modal Update
+    
     function openUpdateModal(id, venueId, section, row, num) {
         const modal = document.getElementById('updateSeatModal');
-        const form = document.getElementById('updateForm');
-        form.action = `/dashboard/seat/update/${id}/`;
-        
+        document.getElementById('updateForm').action = `/dashboard/{{ user_id }}/seat/update/${id}/`;
         document.getElementById('upd_section').value = section;
         document.getElementById('upd_row').value = row;
         document.getElementById('upd_number').value = num;
-        
-        const venueSelect = document.getElementById('upd_venue');
-        populateVenueSelect(venueSelect, venueId);
-        
+        populateVenueSelect(document.getElementById('upd_venue'), venueId);
         modal.classList.remove('hidden');
         document.body.style.overflow = 'hidden';
     }
@@ -237,11 +261,10 @@
         document.body.style.overflow = 'auto';
     }
 
-    // Modal Delete
+    
     function confirmDelete(id) {
         const modal = document.getElementById('deleteModal');
-        const deleteBtn = document.getElementById('confirmDeleteBtn');
-        deleteBtn.href = `/dashboard/seat/delete/${id}/`;
+        document.getElementById('confirmDeleteBtn').href = `/dashboard/{{ user_id }}/seat/delete/${id}/`;
         modal.classList.remove('hidden');
         document.body.style.overflow = 'hidden';
     }

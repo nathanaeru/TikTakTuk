@@ -338,62 +338,89 @@ def update_ticket(request, ticket_id):
 
 
 def delete_ticket(request, ticket_id):
-    Ticket.objects.filter(ticket_id=ticket_id).delete()
-    return redirect(request.META.get("HTTP_REFERER", "/"))
+    with connection.cursor() as cursor:
+        cursor.execute("SET search_path TO tiktaktuk, public")
+       
+        cursor.execute('DELETE FROM TICKET WHERE ticket_id = %s', [ticket_id])
+        
+    return redirect(request.META.get('HTTP_REFERER', '/'))
 
+def seat_management(request, user_id=None):
+    """
+    Halaman List Kursi: Bisa dibaca semua role (Guest, Customer, Organizer, Admin).
+    Aksi CUD: Hanya muncul untuk Admin & Organizer.
+    """
+    #Identifikasi Role
+    raw_role = get_role(user_id) 
+    
+    #Mapping Role 
+    if raw_role == 'administrator':
+        role_display = "admin"
+    elif raw_role == 'organizer':
+        role_display = "organizer"
+    elif raw_role == 'customer':
+        role_display = "customer"
+    else:
+        role_display = "guest"
+    
+    with connection.cursor() as cursor:
+        cursor.execute("SET search_path TO tiktaktuk, public")
+        
+        #Nama User untuk Greeting
+        user_display_name = "Guest"
+        if user_id:
+            if role_display == 'organizer':
+                cursor.execute('SELECT organizer_name FROM ORGANIZER WHERE user_id = %s', [user_id])
+            elif role_display == 'customer':
+                cursor.execute('SELECT full_name FROM CUSTOMER WHERE user_id = %s', [user_id])
+            else:
+                cursor.execute('SELECT username FROM USER_ACCOUNT WHERE user_id = %s', [user_id])
+            
+            row_name = cursor.fetchone()
+            user_display_name = row_name[0] if row_name else "User"
 
-def seat_management(request):
-    user_id = request.session.get("user_id")
-    raw_role = get_role(user_id)
+        # read 
+        cursor.execute('''
+            SELECT 
+                s.seat_id, s.section, s.row_number, s.seat_number, v.venue_name,
+                CASE 
+                    WHEN hr.seat_id IS NOT NULL THEN 'TERISI'
+                    ELSE 'TERSEDIA'
+                END as status,
+                v.venue_id
+            FROM SEAT s
+            JOIN VENUE v ON s.venue_id = v.venue_id
+            LEFT JOIN HAS_RELATIONSHIP hr ON s.seat_id = hr.seat_id
+            ORDER BY v.venue_name, s.section, s.row_number, s.seat_number
+        ''')
+        rows = cursor.fetchall()
+        
+        seat_list = []
+        for r in rows:
+            seat_list.append({
+                'seat_id': str(r[0]),
+                'section': r[1],
+                'row': r[2],
+                'number': r[3],
+                'venue': r[4],
+                'status': r[5],
+                'venue_id': str(r[6])
+            })
 
-    role_display = (
-        raw_role
-        if raw_role in ["organizer", "customer"]
-        else ("admin" if raw_role == "administrator" else "guest")
-    )
-    user_display_name = "Guest"
+        #Statistik Dashboard
+        cursor.execute('SELECT COUNT(*) FROM SEAT')
+        total_seats = cursor.fetchone()[0] or 0
+        
+        cursor.execute('SELECT COUNT(*) FROM HAS_RELATIONSHIP')
+        total_taken = cursor.fetchone()[0] or 0
 
-    if user_id:
-        if role_display == "organizer":
-            org = Organizer.objects.filter(user_id=user_id).first()
-            user_display_name = org.organizer_name if org else "User"
-        elif role_display == "customer":
-            cust = Customer.objects.filter(user_id=user_id).first()
-            user_display_name = cust.full_name if cust else "User"
-        else:
-            usr = UserAccount.objects.filter(user_id=user_id).first()
-            user_display_name = usr.username if usr else "User"
+        #Data Venue (Admin/Org untuk Modal)
+        venues_json = []
+        if role_display in ['admin', 'organizer']:
+            cursor.execute('SELECT venue_id, venue_name FROM VENUE')
+            venues_json = [{'id': str(v[0]), 'nama': v[1]} for v in cursor.fetchall()]
 
-    # PERBAIKAN: Gunakan field spesifik model seperti 'venue_name', 'row_number'
-    seats_qs = (
-        Seat.objects.select_related("venue")
-        .annotate(is_taken=Count("hasrelationship"))
-        .order_by("venue__venue_name", "section", "row_number", "seat_number")
-    )
-
-    seat_list = []
-    for s in seats_qs:
-        seat_list.append(
-            {
-                "seat_id": str(s.seat_id),
-                "section": s.section,
-                "row": s.row_number,
-                "number": s.seat_number,
-                "venue": s.venue.venue_name,
-                "status": "TERISI" if s.is_taken > 0 else "TERSEDIA",
-                "venue_id": str(s.venue.venue_id),
-            }
-        )
-
-    total_seats = Seat.objects.count()
-    total_taken = HasRelationship.objects.count()
-
-    venues_json = []
-    if role_display in ["admin", "organizer"]:
-        venues_json = [
-            {"id": str(v.venue_id), "nama": v.venue_name} for v in Venue.objects.all()
-        ]
-
+    # Kirim Context
     context = {
         "seats": seat_list,
         "total_kursi": total_seats,
