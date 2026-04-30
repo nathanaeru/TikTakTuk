@@ -29,6 +29,14 @@ class AccountRole(models.Model):
     class Meta:
         managed = False
         db_table = "account_role"
+        # Constraint: Each user can have only 1 role (1:n relationship)
+        constraints = [
+            models.UniqueConstraint(
+                fields=["user_id"],
+                name="one_role_per_user",
+                violation_error_message="Setiap user hanya boleh memiliki 1 role",
+            )
+        ]
 
 
 class Customer(models.Model):

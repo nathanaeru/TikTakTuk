@@ -1,0 +1,55 @@
+{% extends 'base.html' %}
+
+{% block title %}
+  Pilih Role - TikTakTuk
+{% endblock %}
+
+{% block content %}
+  <div class="min-h-[80vh] flex items-center justify-center px-4 py-12">
+    <div class="bg-dark-card/80 backdrop-blur-md border border-dark-border rounded-2xl p-8 max-w-2xl w-full shadow-2xl">
+      <div class="text-center mb-8">
+        <h1 class="text-3xl font-bold text-white mb-2">Pilih Role Anda</h1>
+        <p class="text-gray-400">Setiap role memiliki halaman pendaftaran dengan persyaratan berbeda</p>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <!-- Pelanggan Card -->
+        <a href="{% url 'auth:register_customer' %}" class="group">
+          <div class="rounded-xl border border-dark-border bg-dark-bg hover:border-primary hover:bg-primary/5 transition-all p-6 h-full flex flex-col items-center text-center">
+            <div class="text-5xl mb-4 group-hover:scale-110 transition-transform">👤</div>
+            <h2 class="text-xl font-bold text-white mb-2">Pelanggan</h2>
+            <p class="text-sm text-gray-400 mb-4 flex-grow">Beli dan nikmati tiket untuk berbagai acara menarik</p>
+            <div class="mt-4 px-4 py-2 bg-primary/20 text-primary rounded-lg text-sm font-medium group-hover:bg-primary group-hover:text-white transition-all">Daftar Sekarang</div>
+          </div>
+        </a>
+
+        <!-- Penyelenggara Card -->
+        <a href="{% url 'auth:register_organizer' %}" class="group">
+          <div class="rounded-xl border border-dark-border bg-dark-bg hover:border-primary hover:bg-primary/5 transition-all p-6 h-full flex flex-col items-center text-center">
+            <div class="text-5xl mb-4 group-hover:scale-110 transition-transform">🎪</div>
+            <h2 class="text-xl font-bold text-white mb-2">Penyelenggara</h2>
+            <p class="text-sm text-gray-400 mb-4 flex-grow">Buat dan kelola acara Anda sendiri</p>
+            <div class="mt-4 px-4 py-2 bg-primary/20 text-primary rounded-lg text-sm font-medium group-hover:bg-primary group-hover:text-white transition-all">Daftar Sekarang</div>
+          </div>
+        </a>
+
+        <!-- Admin Card -->
+        <a href="{% url 'auth:register_admin' %}" class="group">
+          <div class="rounded-xl border border-dark-border bg-dark-bg hover:border-primary hover:bg-primary/5 transition-all p-6 h-full flex flex-col items-center text-center">
+            <div class="text-5xl mb-4 group-hover:scale-110 transition-transform">👨‍💼</div>
+            <h2 class="text-xl font-bold text-white mb-2">Administrator</h2>
+            <p class="text-sm text-gray-400 mb-4 flex-grow">Kelola platform dan semua data sistem</p>
+            <div class="mt-4 px-4 py-2 bg-primary/20 text-primary rounded-lg text-sm font-medium group-hover:bg-primary group-hover:text-white transition-all">Daftar Sekarang</div>
+          </div>
+        </a>
+      </div>
+
+      <div class="mt-8 text-center">
+        <p class="text-gray-400">
+          Sudah memiliki akun?
+          <a href="{% url 'auth:login' %}" class="text-primary hover:underline font-medium">Masuk di sini</a>
+        </p>
+      </div>
+    </div>
+  </div>
+{% endblock %}
