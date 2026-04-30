@@ -53,7 +53,9 @@ venue_name VARCHAR(100) NOT NULL,
 capacity INTEGER NOT NULL DEFAULT 1,
 address TEXT NOT NULL,
 city VARCHAR(100) NOT NULL,
-CONSTRAINT capacity_check CHECK (capacity > 0)
+jenis_seating VARCHAR(20) NOT NULL,
+CONSTRAINT capacity_check CHECK (capacity > 0),
+CONSTRAINT jenis_seating_check CHECK (jenis_seating IN ('Free Seating', 'Reserved Seating'))
 );
 
 CREATE TABLE SEAT(
@@ -189,15 +191,12 @@ INSERT INTO USER_ACCOUNT (user_id, username, password) VALUES
 
 
 INSERT INTO ACCOUNT_ROLE (role_id, user_id) VALUES
--- Administrators (2 rows)
 ('10000000-0000-0000-0000-000000000001', '20000000-0000-0000-0000-000000000001'),
 ('10000000-0000-0000-0000-000000000001', '20000000-0000-0000-0000-000000000002'),
--- Organizers (4 rows)
 ('10000000-0000-0000-0000-000000000002', '20000000-0000-0000-0000-000000000003'),
 ('10000000-0000-0000-0000-000000000002', '20000000-0000-0000-0000-000000000004'),
 ('10000000-0000-0000-0000-000000000002', '20000000-0000-0000-0000-000000000005'),
 ('10000000-0000-0000-0000-000000000002', '20000000-0000-0000-0000-000000000006'),
--- Customers (10 rows)
 ('10000000-0000-0000-0000-000000000003', '20000000-0000-0000-0000-000000000007'),
 ('10000000-0000-0000-0000-000000000003', '20000000-0000-0000-0000-000000000008'),
 ('10000000-0000-0000-0000-000000000003', '20000000-0000-0000-0000-000000000009'),
@@ -229,12 +228,12 @@ INSERT INTO ORGANIZER (organizer_id, organizer_name, contact_email, user_id) VAL
 ('40000000-0000-0000-0000-000000000004', 'Ismaya Live', 'hello@ismaya.com', '20000000-0000-0000-0000-000000000006');
 
 
-INSERT INTO VENUE (venue_id, venue_name, capacity, address, city) VALUES
-('50000000-0000-0000-0000-000000000001', 'Jakarta Convention Center', 5000, 'Jl. Gatot Subroto', 'Jakarta'),
-('50000000-0000-0000-0000-000000000002', 'Taman Impian Jayakarta', 10000, 'Ancol', 'Jakarta'),
-('50000000-0000-0000-0000-000000000003', 'Bandung Hall Center', 3000, 'Jl. Asia Afrika', 'Bandung'),
-('50000000-0000-0000-0000-000000000004', 'Istora Senayan', 7000, 'Kompleks GBK', 'Jakarta'),
-('50000000-0000-0000-0000-000000000005', 'Bali Nusa Dua Convention', 4000, 'Nusa Dua', 'Bali');
+INSERT INTO VENUE (venue_id, venue_name, capacity, address, city, jenis_seating) VALUES
+('50000000-0000-0000-0000-000000000001', 'Jakarta Convention Center', 5000, 'Jl. Gatot Subroto', 'Jakarta', 'Reserved Seating'),
+('50000000-0000-0000-0000-000000000002', 'Taman Impian Jayakarta', 10000, 'Ancol', 'Jakarta', 'Free Seating'),
+('50000000-0000-0000-0000-000000000003', 'Bandung Hall Center', 3000, 'Jl. Asia Afrika', 'Bandung', 'Free Seating'),
+('50000000-0000-0000-0000-000000000004', 'Istora Senayan', 7000, 'Kompleks GBK', 'Jakarta', 'Reserved Seating'),
+('50000000-0000-0000-0000-000000000005', 'Bali Nusa Dua Convention', 4000, 'Nusa Dua', 'Bali', 'Free Seating');
 
 
 
