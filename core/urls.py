@@ -53,4 +53,16 @@ urlpatterns = [
         views.ticket_category_list_view,
         name="ticket_category_list",
     ),
+
+    #ORDER
+    path('order/checkout/', views.checkout_view, name='checkout'),
+    path('order/', views.daftar_order_view, name='daftar_order'),
+    path('order/update/<str:order_id>/', views.update_order_status, name='update_order'),
+    path('order/delete/<str:order_id>/', views.delete_order, name='delete_order'),
+
+    #PROMOTION
+    path('promotion/', views.promotion_list_view, name='promotion_list'),
+    path('promotion/create/', views.create_promotion, name='create_promotion'),
+    path('promotion/update/<uuid:promo_id>/', views.update_promotion, name='update_promotion'),
+    path('promotion/delete/<uuid:promo_id>/', views.delete_promotion, name='delete_promotion'),
 ]

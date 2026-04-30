@@ -1,0 +1,186 @@
+{% extends 'base.html' %}
+
+{% block title %}Daftar Order - TikTakTuk{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto p-6 md:p-8">
+    
+    <div class="mb-8">
+        <h2 class="text-3xl font-bold text-white mb-2">Daftar Order</h2>
+        <p class="text-gray-400">Riwayat pembelian tiket (Mode: {{ user_role }})</p>
+    </div>
+    
+    <!-- STATISTIK RINGKASAN -->
+    <div class="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-6 mb-8">
+        <div class="bg-dark-card border border-dark-border rounded-xl p-6 shadow-lg">
+            <p class="text-gray-400 text-xs font-bold uppercase tracking-wider mb-2">TOTAL ORDER</p>
+            <h3 class="text-3xl font-bold text-white">{{ total_order }}</h3>
+        </div>
+        <div class="bg-dark-card border border-dark-border rounded-xl p-6 shadow-lg">
+            <p class="text-gray-400 text-xs font-bold uppercase tracking-wider mb-2">LUNAS</p>
+            <h3 class="text-3xl font-bold text-green-400">{{ lunas_count }}</h3>
+        </div>
+        <div class="bg-dark-card border border-dark-border rounded-xl p-6 shadow-lg">
+            <p class="text-gray-400 text-xs font-bold uppercase tracking-wider mb-2">PENDING</p>
+            <h3 class="text-3xl font-bold text-yellow-400">{{ pending_count }}</h3>
+        </div>
+        {% if user_role == 'Admin' or user_role == 'Organizer' %}
+        <div class="bg-dark-card border border-dark-border rounded-xl p-6 shadow-lg">
+            <p class="text-gray-400 text-xs font-bold uppercase tracking-wider mb-2">TOTAL REVENUE</p>
+            <h3 class="text-3xl font-bold text-primary">Rp {{ total_revenue }}</h3>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- FILTER & SEARCH -->
+    <div class="flex flex-col sm:flex-row gap-4 mb-6">
+        <input type="text" placeholder="Cari ID atau pelanggan..." class="flex-1 bg-dark-card border border-dark-border text-white rounded-lg px-4 py-3 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-colors placeholder-gray-500">
+        <select class="bg-dark-card border border-dark-border text-white rounded-lg px-4 py-3 focus:outline-none focus:border-primary transition-colors">
+            <option value="All">Semua Status</option>
+            <option value="Paid">Lunas</option>
+            <option value="Pending">Pending</option>
+            <option value="Cancelled">Dibatalkan</option>
+        </select>
+    </div>
+
+    <!-- TABEL ORDER -->
+    <div class="bg-dark-card border border-dark-border rounded-xl shadow-lg overflow-x-auto">
+        <table class="w-full text-left border-collapse">
+            <thead>
+                <tr class="border-b border-dark-border text-gray-400 text-sm uppercase tracking-wider bg-dark-bg/30">
+                    <th class="py-4 px-6 font-medium">ORDER ID</th>
+                    {% if user_role == 'Admin' or user_role == 'Organizer' %}
+                    <th class="py-4 px-6 font-medium">PELANGGAN</th>
+                    {% endif %}
+                    <th class="py-4 px-6 font-medium">TANGGAL</th>
+                    <th class="py-4 px-6 font-medium">STATUS</th>
+                    <th class="py-4 px-6 font-medium">TOTAL</th>
+                    {% if user_role == 'Admin' %}
+                    <th class="py-4 px-6 font-medium text-center">ACTION</th>
+                    {% endif %}
+                </tr>
+            </thead>
+            <tbody class="text-gray-200">
+                {% for order in orders %}
+                <tr class="border-b border-dark-border/50 hover:bg-dark-bg/40 transition-colors">
+                    <td class="py-4 px-6 font-mono text-sm">{{ order.order_id|truncatechars:13 }}</td>
+                    
+                    {% if user_role == 'Admin' or user_role == 'Organizer' %}
+                    <td class="py-4 px-6 flex items-center gap-3">
+                        <div class="w-8 h-8 rounded-full bg-gray-700 flex items-center justify-center text-xs font-bold text-white">
+                            {{ order.customer.username|first|upper|default:"G" }}
+                        </div>
+                        {{ order.customer.username|default:"Guest" }}
+                    </td>
+                    {% endif %}
+                    
+                    <td class="py-4 px-6 text-sm text-gray-400">{{ order.order_date|date:"Y-m-d H:i" }}</td>
+                    
+                    <td class="py-4 px-6">
+                        {% if order.payment_status == 'Paid' or order.payment_status == 'Lunas' %}
+                            <span class="bg-green-500/20 text-green-400 px-3 py-1 rounded-full text-xs font-bold border border-green-500/30">LUNAS</span>
+                        {% elif order.payment_status == 'Pending' %}
+                            <span class="bg-yellow-500/20 text-yellow-400 px-3 py-1 rounded-full text-xs font-bold border border-yellow-500/30">PENDING</span>
+                        {% else %}
+                            <span class="bg-red-500/20 text-red-400 px-3 py-1 rounded-full text-xs font-bold border border-red-500/30">DIBATALKAN</span>
+                        {% endif %}
+                    </td>
+                    
+                    <td class="py-4 px-6 font-medium">Rp {{ order.total_amount }}</td>
+                    
+                    {% if user_role == 'Admin' %}
+                    <td class="py-4 px-6 text-center">
+                        <button onclick="openUpdateModal('{{ order.order_id }}', '{{ order.payment_status }}')" class="text-yellow-400 hover:text-yellow-300 bg-yellow-400/10 hover:bg-yellow-400/20 p-2 rounded-lg transition-colors mr-2" title="Update Status">
+                            ✏️
+                        </button>
+                        <button onclick="openDeleteModal('{{ order.order_id }}')" class="text-red-400 hover:text-red-300 bg-red-400/10 hover:bg-red-400/20 p-2 rounded-lg transition-colors" title="Hapus Order">
+                            🗑️
+                        </button>
+                    </td>
+                    {% endif %}
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="6" class="py-12 text-center text-gray-500">
+                        Belum ada data pesanan.
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- ============================================== -->
+<!-- MODAL SECTION (Hanya diload jika user Admin)   -->
+<!-- ============================================== -->
+{% if user_role == 'Admin' %}
+    <!-- Modal Backdrop -->
+    <div id="modalBackdrop" class="fixed inset-0 bg-black/70 backdrop-blur-sm z-40 hidden transition-opacity"></div>
+
+    <!-- Modal Update -->
+    <div id="updateModal" class="fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-dark-card border border-dark-border rounded-2xl p-6 w-full max-w-md z-50 hidden shadow-2xl">
+        <h3 class="text-xl font-bold text-white mb-1">Update Status Order</h3>
+        <p class="text-xs text-gray-400 font-mono mb-6" id="update-order-id-display"></p>
+        
+        <form id="updateForm" method="POST" action="">
+            {% csrf_token %}
+            <label class="block text-sm text-gray-300 mb-2">Pilih Status Pembayaran</label>
+            <select name="payment_status" id="update-status-select" class="w-full bg-dark-bg border border-dark-border text-white rounded-lg px-4 py-3 mb-6 focus:outline-none focus:border-primary transition-colors">
+                <option value="Paid">Lunas</option>
+                <option value="Pending">Pending</option>
+                <option value="Cancelled">Dibatalkan</option>
+            </select>
+            <div class="flex justify-end gap-3">
+                <button type="button" onclick="closeModal('updateModal')" class="px-5 py-2.5 rounded-lg text-gray-300 hover:bg-dark-border transition-colors font-medium">Batal</button>
+                <button type="submit" class="px-5 py-2.5 bg-primary hover:bg-primaryHover text-white rounded-lg transition-colors font-medium">Simpan Update</button>
+            </div>
+        </form>
+    </div>
+
+    <!-- Modal Delete -->
+    <div id="deleteModal" class="fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-dark-card border border-dark-border rounded-2xl p-6 w-full max-w-md z-50 hidden shadow-2xl">
+        <div class="flex items-center gap-3 mb-4">
+            <div class="w-10 h-10 rounded-full bg-red-500/20 text-red-500 flex items-center justify-center text-xl">⚠️</div>
+            <h3 class="text-xl font-bold text-red-400">Hapus Order</h3>
+        </div>
+        <p class="text-gray-300 mb-6 leading-relaxed">Apakah Anda yakin ingin menghapus data order ini? Tindakan ini tidak dapat dibatalkan dan akan hilang dari database.</p>
+        
+        <form id="deleteForm" method="POST" action="">
+            {% csrf_token %}
+            <div class="flex justify-end gap-3">
+                <button type="button" onclick="closeModal('deleteModal')" class="px-5 py-2.5 rounded-lg text-gray-300 hover:bg-dark-border transition-colors font-medium">Batal</button>
+                <button type="submit" class="px-5 py-2.5 bg-red-500 hover:bg-red-600 text-white rounded-lg transition-colors font-medium">Ya, Hapus</button>
+            </div>
+        </form>
+    </div>
+
+    <script>
+        function openUpdateModal(orderId, currentStatus) {
+            document.getElementById('modalBackdrop').classList.remove('hidden');
+            document.getElementById('updateModal').classList.remove('hidden');
+            document.getElementById('update-order-id-display').innerText = 'ID: ' + orderId;
+            document.getElementById('updateForm').action = `/order/update/${orderId}/`;
+            
+            const select = document.getElementById('update-status-select');
+            for(let i=0; i<select.options.length; i++) {
+                if(select.options[i].value === currentStatus) {
+                    select.selectedIndex = i;
+                    break;
+                }
+            }
+        }
+
+        function openDeleteModal(orderId) {
+            document.getElementById('modalBackdrop').classList.remove('hidden');
+            document.getElementById('deleteModal').classList.remove('hidden');
+            document.getElementById('deleteForm').action = `/order/delete/${orderId}/`;
+        }
+
+        function closeModal(modalId) {
+            document.getElementById('modalBackdrop').classList.add('hidden');
+            document.getElementById(modalId).classList.add('hidden');
+        }
+    </script>
+{% endif %}
+{% endblock %}
