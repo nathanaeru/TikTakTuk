@@ -352,10 +352,7 @@ def update_ticket(request, ticket_id):
 def delete_ticket(request, ticket_id):
     with connection.cursor() as cursor:
         cursor.execute("SET search_path TO tiktaktuk, public")
-        # 1. Hapus relasi kursi dulu (jika ada tabel HAS_RELATIONSHIP)
-        # cursor.execute('DELETE FROM HAS_RELATIONSHIP WHERE ticket_id = %s', [ticket_id])
-        
-        # 2. Hapus tiket secara permanen
+       
         cursor.execute('DELETE FROM TICKET WHERE ticket_id = %s', [ticket_id])
         
     return redirect(request.META.get('HTTP_REFERER', '/'))
