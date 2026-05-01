@@ -19,7 +19,6 @@ urlpatterns = [
     path('event/', views.event_list, name='event_list'),
     path('my-event/', views.my_event_list, name='my_event_list'),
     path('admin-event/', views.admin_event_list, name='admin_event_list'),
-]
     path("", views.home_view, name="home"),
     # Manajemen Seat
     path("dashboard/seat/", views.seat_management, name="seat_management"),
@@ -54,4 +53,10 @@ urlpatterns = [
         views.ticket_category_list_view,
         name="ticket_category_list",
     ),
+    path("venue/create/", views.create_venue, name="create_venue"),
+    path("venue/update/<uuid:venue_id>/", views.update_venue, name="update_venue"),
+    path("venue/delete/<uuid:venue_id>/", views.delete_venue, name="delete_venue"),
+
+    path("event/create/", views.create_event, name="create_event"),
+    path("event/update/<uuid:event_id>/", views.update_event, name="update_event"),
 ]

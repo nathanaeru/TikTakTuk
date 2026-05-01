@@ -12,25 +12,36 @@
     <p class="text-gray-400 mt-1">Temukan acara terbaik dan beli tiket favorit Anda</p>
   </div>
 
-  <div class="flex flex-col md:flex-row gap-4 mb-8">
-    <input type="text" placeholder="Cari acara atau artis..."
+  <form method="GET" class="flex flex-col md:flex-row gap-4 mb-8">
+    <input name="search" type="text" placeholder="Cari acara atau artis..."
+      value="{{ request.GET.search }}"
       class="flex-1 bg-dark-card border border-dark-border rounded-xl px-4 py-3 text-sm text-white placeholder-gray-500" />
 
-    <select class="bg-dark-card border border-dark-border rounded-xl px-4 py-3 text-sm text-white">
-      <option>Semua Venue</option>
-      <option>Jakarta Convention Center</option>
-      <option>Taman Impian Jaya Ancol</option>
-      <option>Bandung Hall Center</option>
+    <select name="venue" onchange="this.form.submit()"
+      class="bg-dark-card border border-dark-border rounded-xl px-4 py-3 text-sm text-white">
+      <option value="">Semua Venue</option>
+      {% for venue in venues %}
+        <option value="{{ venue.venue_id }}" {% if request.GET.venue == venue.venue_id|stringformat:"s" %}selected{% endif %}>
+          {{ venue.venue_name }}
+        </option>
+      {% endfor %}
     </select>
 
-    <select class="bg-dark-card border border-dark-border rounded-xl px-4 py-3 text-sm text-white">
-      <option>Semua Artis</option>
-      <option>Fourtwnty</option>
-      <option>Hindia</option>
-      <option>Tulus</option>
-      <option>Nadin Amizah</option>
+    <select name="artist" onchange="this.form.submit()"
+      class="bg-dark-card border border-dark-border rounded-xl px-4 py-3 text-sm text-white">
+      <option value="">Semua Artis</option>
+      {% for artist in artists %}
+        <option value="{{ artist.artist_id }}" {% if request.GET.artist == artist.artist_id|stringformat:"s" %}selected{% endif %}>
+          {{ artist.name }}
+        </option>
+      {% endfor %}
     </select>
-  </div>
+
+    <button type="submit"
+      class="bg-primary hover:bg-primaryHover text-white px-5 py-3 rounded-xl text-sm font-semibold">
+      Cari
+    </button>
+  </form>
 
   <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
     {% for event in events %}
@@ -71,7 +82,7 @@
         <p class="text-sm text-gray-400">📅 {{ event.date }} • {{ event.time }}</p>
         <p class="text-sm text-gray-400">📍 {{ event.venue }}</p>
 
-        <p class="text-sm text-white-400 font-semibold mt-2">
+        <p class="text-sm text-white font-semibold mt-2">
           Mulai Rp {{ event.price }}
         </p>
 
@@ -88,6 +99,8 @@
         </button>
       </div>
     </div>
+    {% empty %}
+      <p class="text-gray-400">Tidak ada event ditemukan.</p>
     {% endfor %}
   </div>
 </div>
