@@ -13,7 +13,7 @@
     </div>
 
     {% if role != 'customer' %}
-    <button onclick="openVenueModal('Tambah Venue Baru', 'Tambah')"
+    <button onclick="openVenueModal('Tambah Venue Baru', 'Tambah', '{% url "create_venue" %}')"
       class="bg-primary hover:bg-primaryHover text-white px-4 py-2 rounded-lg text-sm font-medium">
       + Tambah Venue
     </button>
@@ -105,6 +105,7 @@
           <td class="px-6 py-4 text-right">
             <button 
               onclick="openEditVenueModal(this)"
+              data-action="{% url 'update_venue' venue.id %}"
               data-name="{{ venue.name }}"
               data-address="{{ venue.address }}"
               data-city="{{ venue.city }}"
@@ -114,10 +115,12 @@
               Edit
             </button>
 
-            <button onclick="openDeleteModal()"
-              class="bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded text-xs">
-              Hapus
-            </button>
+            <form method="POST" action="{% url 'delete_venue' venue.id %}" class="inline">
+              {% csrf_token %}
+              <button class="bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded text-xs">
+                Hapus
+              </button>
+            </form>
           </td>
           {% endif %}
         </tr>
@@ -141,31 +144,32 @@
       <button onclick="closeVenueModal()" class="text-gray-500 hover:text-gray-800">✕</button>
     </div>
 
-    <form class="space-y-4">
+    <form id="venueForm" method="POST" class="space-y-4">
+      {% csrf_token %}
       <div>
         <label class="block text-sm font-semibold mb-1">Nama Venue</label>
-        <input id="venue_name" type="text" class="w-full border rounded-lg px-3 py-2" placeholder="Masukkan nama venue">
+        <input id="venue_name" name="venue_name" type="text" class="w-full border rounded-lg px-3 py-2" placeholder="Masukkan nama venue">
       </div>
 
       <div>
         <label class="block text-sm font-semibold mb-1">Alamat</label>
-        <textarea id="venue_address" class="w-full border rounded-lg px-3 py-2" rows="3"></textarea>
+        <textarea id="venue_address" name="address" class="w-full border rounded-lg px-3 py-2" rows="3"></textarea>
       </div>
 
       <div class="grid grid-cols-2 gap-4">
         <div>
           <label class="block text-sm font-semibold mb-1">Kota</label>
-          <input id="venue_city" type="text" class="w-full border rounded-lg px-3 py-2">
+          <input id="venue_city" name="city" type="text" class="w-full border rounded-lg px-3 py-2">
         </div>
 
         <div>
           <label class="block text-sm font-semibold mb-1">Kapasitas</label>
-          <input id="venue_capacity" type="number" class="w-full border rounded-lg px-3 py-2">
+          <input id="venue_capacity" name="capacity" type="number" class="w-full border rounded-lg px-3 py-2">
         </div>
       </div>
 
       <label class="flex items-center gap-2 text-sm">
-        <input id="venue_reserved" type="checkbox">
+        <input id="venue_reserved" name="has_reserved_seating" type="checkbox">
         <span>Has Reserved Seating</span>
       </label>
 
@@ -184,30 +188,11 @@
   </div>
 </div>
 
-<!-- Modal Delete -->
-<div id="deleteModal" class="hidden fixed inset-0 bg-black/60 z-50 flex items-center justify-center">
-  <div class="bg-white text-gray-900 rounded-2xl w-full max-w-md p-6">
-    <h2 class="text-xl font-bold text-red-600 mb-2">Hapus Venue</h2>
-    <p class="text-gray-600 mb-6">
-      Apakah Anda yakin ingin menghapus venue ini?
-    </p>
-
-    <div class="flex justify-end gap-3">
-      <button onclick="closeDeleteModal()" class="border px-4 py-2 rounded-lg">
-        Batal
-      </button>
-
-      <button class="bg-red-600 text-white px-4 py-2 rounded-lg">
-        Hapus
-      </button>
-    </div>
-  </div>
-</div>
-
 <script>
-  function openVenueModal(title, buttonText) {
+  function openVenueModal(title, buttonText, actionUrl) {
     document.getElementById("venueModalTitle").innerText = title;
     document.getElementById("venueSubmitBtn").innerText = buttonText;
+    document.getElementById("venueForm").action = actionUrl;
 
     document.getElementById("venue_name").value = "";
     document.getElementById("venue_address").value = "";
@@ -218,34 +203,22 @@
     document.getElementById("venueModal").classList.remove("hidden");
   }
 
-  function closeVenueModal() {
-    document.getElementById("venueModal").classList.add("hidden");
-  }
-
-  function openDeleteModal() {
-    document.getElementById("deleteModal").classList.remove("hidden");
-  }
-
-  function closeDeleteModal() {
-    document.getElementById("deleteModal").classList.add("hidden");
-  }
   function openEditVenueModal(btn) {
-    const name = btn.dataset.name;
-    const address = btn.dataset.address;
-    const city = btn.dataset.city;
-    const capacity = btn.dataset.capacity;
-    const reserved = btn.dataset.reserved === "true";
-
     document.getElementById("venueModalTitle").innerText = "Edit Venue";
     document.getElementById("venueSubmitBtn").innerText = "Simpan";
+    document.getElementById("venueForm").action = btn.dataset.action;
 
-    document.getElementById("venue_name").value = name;
-    document.getElementById("venue_address").value = address;
-    document.getElementById("venue_city").value = city;
-    document.getElementById("venue_capacity").value = capacity;
-    document.getElementById("venue_reserved").checked = reserved;
+    document.getElementById("venue_name").value = btn.dataset.name;
+    document.getElementById("venue_address").value = btn.dataset.address;
+    document.getElementById("venue_city").value = btn.dataset.city;
+    document.getElementById("venue_capacity").value = btn.dataset.capacity;
+    document.getElementById("venue_reserved").checked = btn.dataset.reserved === "true";
 
     document.getElementById("venueModal").classList.remove("hidden");
+  }
+
+  function closeVenueModal() {
+    document.getElementById("venueModal").classList.add("hidden");
   }
 </script>
 {% endblock %}

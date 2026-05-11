@@ -1,11 +1,15 @@
+import uuid, json
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib import messages
 from django.db import connection, IntegrityError
 from django.db.models import Count, Sum
+from django.db.models import Count, Sum, Min
 from django.utils import timezone
 from django.db import IntegrityError
 from django.contrib.auth import get_user_model
 import uuid, json
+from django.db.models.functions import Lower
+from datetime import datetime
 
 from .models import (
     Venue,
@@ -16,6 +20,8 @@ from .models import (
     TicketCategory,
     Order,
     Promotion,
+    Artist,
+    EventArtist,
 )
 from authentication.models import UserAccount, AccountRole, Customer, Organizer
 
@@ -772,124 +778,326 @@ def delete_seat(request, user_id, seat_id):
     except Exception as e:
         messages.error(request, f"Terjadi kesalahan: {e}")
 
-    return redirect("seat_management", user_id=user_id)
+    return redirect('seat_management', user_id=user_id)
+
+def normalize_role(raw_role):
+    if raw_role == "administrator":
+        return "admin"
+    if raw_role in ["admin", "organizer", "customer"]:
+        return raw_role
+    return "customer"
+
+
+def get_current_role(request):
+    user_id = request.session.get("user_id")
+    if user_id:
+        return normalize_role(request.session.get("role") or get_role(user_id))
+    return normalize_role(request.GET.get("role", "customer"))
 
 
 def venue_list(request):
-    role = request.GET.get("role", "customer")
+    role = get_current_role(request)
 
-    venues = [
-        {
-            "id": 1,
-            "name": "Jakarta Convention Center",
-            "address": "Jl. Gatot Subroto No.1, Jakarta",
-            "city": "Jakarta",
-            "capacity": 1000,
-            "has_reserved_seating": True,
-        },
-        {
-            "id": 2,
-            "name": "Taman Impian Jaya Ancol",
-            "address": "Jl. Lodan Timur No.7, Jakarta Utara",
-            "city": "Jakarta",
-            "capacity": 500,
-            "has_reserved_seating": False,
-        },
+    venues_qs = Venue.objects.all().order_by("city", "venue_name")
+
+    venues = []
+    for v in venues_qs:
+        venues.append({
+            "id": str(v.venue_id),
+            "name": v.venue_name,
+            "address": v.address,
+            "city": v.city,
+            "capacity": v.capacity,
+            "jenis_seating": v.jenis_seating,
+            "has_reserved_seating": v.jenis_seating == "Reserved Seating",
+        })
+
+    total_capacity = venues_qs.aggregate(total=Sum("capacity"))["total"] or 0
+    reserved_count = venues_qs.filter(jenis_seating="Reserved Seating").count()
+
+    return render(request, "venue/venue_list.html", {
+        "role": role,
+        "venues": venues,
+        "total_capacity": total_capacity,
+        "reserved_count": reserved_count,
+    })
+
+def create_venue(request):
+    role = get_current_role(request)
+    if role not in ["admin", "organizer"]:
+        messages.error(request, "Anda tidak memiliki akses untuk menambah venue.")
+        return redirect("venue_list")
+
+    if request.method == "POST":
+        name = request.POST.get("venue_name", "").strip()
+        address = request.POST.get("address", "").strip()
+        city = request.POST.get("city", "").strip()
+        capacity = request.POST.get("capacity")
+        has_reserved = request.POST.get("has_reserved_seating") == "on"
+
+        jenis_seating = "Reserved Seating" if has_reserved else "Free Seating"
+
+        duplicate = Venue.objects.filter(
+            venue_name__iexact=name,
+            city__iexact=city
+        ).first()
+
+        if duplicate:
+            messages.error(
+                request,
+                f'ERROR: Venue "{name}" di kota "{city}" sudah terdaftar dengan ID {duplicate.venue_id}.'
+            )
+            return redirect("venue_list")
+
+        Venue.objects.create(
+            venue_id=uuid.uuid4(),
+            venue_name=name,
+            address=address,
+            city=city,
+            capacity=capacity,
+            jenis_seating=jenis_seating,
+        )
+
+        messages.success(request, "Venue berhasil ditambahkan.")
+
+    return redirect("venue_list")
+
+
+def update_venue(request, venue_id):
+    role = get_current_role(request)
+    if role not in ["admin", "organizer"]:
+        messages.error(request, "Anda tidak memiliki akses untuk mengubah venue.")
+        return redirect("venue_list")
+
+    venue = get_object_or_404(Venue, venue_id=venue_id)
+
+    if request.method == "POST":
+        name = request.POST.get("venue_name", "").strip()
+        address = request.POST.get("address", "").strip()
+        city = request.POST.get("city", "").strip()
+        capacity = request.POST.get("capacity")
+        has_reserved = request.POST.get("has_reserved_seating") == "on"
+
+        jenis_seating = "Reserved Seating" if has_reserved else "Free Seating"
+
+        duplicate = Venue.objects.filter(
+            venue_name__iexact=name,
+            city__iexact=city
+        ).exclude(venue_id=venue_id).first()
+
+        if duplicate:
+            messages.error(
+                request,
+                f'ERROR: Venue "{name}" di kota "{city}" sudah terdaftar dengan ID {duplicate.venue_id}.'
+            )
+            return redirect("venue_list")
+
+        venue.venue_name = name
+        venue.address = address
+        venue.city = city
+        venue.capacity = capacity
+        venue.jenis_seating = jenis_seating
+        venue.save()
+
+        messages.success(request, "Venue berhasil diperbarui.")
+
+    return redirect("venue_list")
+
+
+def delete_venue(request, venue_id):
+    role = get_current_role(request)
+    if role not in ["admin", "organizer"]:
+        messages.error(request, "Anda tidak memiliki akses untuk menghapus venue.")
+        return redirect("venue_list")
+
+    venue = get_object_or_404(Venue, venue_id=venue_id)
+
+    has_active_event = Event.objects.filter(
+        venue=venue,
+        event_datetime__gte=timezone.now()
+    ).exists()
+
+    if has_active_event:
+        messages.error(
+            request,
+            f'ERROR: Venue "{venue.venue_name}" masih memiliki event aktif sehingga tidak dapat dihapus.'
+        )
+        return redirect("venue_list")
+
+    venue.delete()
+    messages.success(request, "Venue berhasil dihapus.")
+    return redirect("venue_list")
+
+def format_event(e):
+    categories = list(e.ticketcategory_set.all())
+    artists = [
+    ea.artist.name
+    for ea in EventArtist.objects.filter(event=e).select_related("artist")
     ]
 
-    total_capacity = sum(v["capacity"] for v in venues)
-    reserved_count = sum(1 for v in venues if v["has_reserved_seating"])
+    min_price = min([c.price for c in categories], default=0)
 
-    return render(
-        request,
-        "venue/venue_list.html",
-        {
-            "role": role,
-            "venues": venues,
-            "total_capacity": total_capacity,
-            "reserved_count": reserved_count,
-        },
-    )
-
-
-semua_dummy_event = [
-    {
-        "title": "Konser Melodi Senja",
-        "date": "2026-05-15",
-        "time": "19:00",
-        "venue": "Jakarta Convention Center",
-        "artists": ["Fourtwnty", "Hindia"],
-        "price": "250.000",
-        "categories": ["VIP"],
+    return {
+        "id": str(e.event_id),
+        "title": e.event_title,
+        "date": e.event_datetime.strftime("%Y-%m-%d"),
+        "time": e.event_datetime.strftime("%H:%M"),
+        "venue": e.venue.venue_name,
+        "venue_id": str(e.venue.venue_id),
+        "artists": artists,
+        "price": f"{min_price:,.0f}".replace(",", "."),
+        "categories": [c.category_name for c in categories],
         "icon": "🎵",
-        "organizer_id": 1,
-        "description": "Nikmati suasana senja dengan alunan musik indie.",
-    },
-    {
-        "title": "Festival Seni Budaya",
-        "date": "2026-05-22",
-        "time": "10:00",
-        "venue": "Taman Impian Jaya Ancol",
-        "artists": ["Tulus"],
-        "price": "150.000",
-        "categories": ["Regular"],
-        "icon": "🎨",
-        "organizer_id": 1,
-        "description": "Festival seni dan budaya untuk semua kalangan.",
-    },
-    {
-        "title": "Malam Akustik Bandung",
-        "date": "2026-06-10",
-        "time": "18:00",
-        "venue": "Bandung Hall Center",
-        "artists": ["Pamungkas", "Nadin Amizah"],
-        "price": "350.000",
-        "categories": ["VIP", "Regular"],
-        "icon": "🎸",
-        "organizer_id": 2,
-        "description": "Malam musik akustik di Bandung.",
-    },
-]
+        "organizer_id": str(e.organizer_id),
+        "description": getattr(e, "description", ""),
+    }
 
 
 def event_list(request):
-    # Customer: semua event, tombol beli tiket
-    events = semua_dummy_event
-    return render(
-        request,
-        "event/event_list.html",
-        {
-            "role": "customer",
-            "events": events,
-        },
+    events_qs = (
+        Event.objects
+        .select_related("venue", "organizer")
+        .prefetch_related("ticketcategory_set")
+        .order_by("event_datetime")
     )
+
+    search = request.GET.get("search")
+    venue_id = request.GET.get("venue")
+    artist_id = request.GET.get("artist")
+
+    if search:
+        events_qs = events_qs.filter(event_title__icontains=search)
+
+    if venue_id:
+        events_qs = events_qs.filter(venue_id=venue_id)
+
+    if artist_id:
+        events_qs = events_qs.filter(eventartist__artist_id=artist_id)
+
+    events = [format_event(e) for e in events_qs.distinct()]
+
+    return render(request, "event/event_list.html", {
+        "role": "customer",
+        "events": events,
+        "venues": Venue.objects.all(),
+        "artists": Artist.objects.all(),
+    })
 
 
 def admin_event_list(request):
-    events = semua_dummy_event
-
-    return render(
-        request,
-        "event/my_event_list.html",
-        {
-            "events": events,
-            "role": "admin",
-        },
+    events_qs = (
+        Event.objects
+        .select_related("venue", "organizer")
+        .prefetch_related("ticketcategory_set")
+        .order_by("event_datetime")
     )
+
+    events = [format_event(e) for e in events_qs]
+
+    return render(request, "event/my_event_list.html", {
+        "role": "admin",
+        "events": events,
+        "venues": Venue.objects.all(),
+        "organizers": Organizer.objects.all(),
+    })
 
 
 def my_event_list(request):
-    events = [e for e in semua_dummy_event if e["organizer_id"] == 1]
+    user_id = request.session.get("user_id")
+    role = get_current_role(request)
 
-    return render(
-        request,
-        "event/my_event_list.html",
-        {
-            "events": events,
-            "role": "organizer",
-        },
+    if role != "organizer":
+        messages.error(request, "Anda harus login sebagai organizer untuk mengakses halaman ini.")
+        return redirect("event_list")
+
+    organizer = Organizer.objects.filter(user_id=user_id).first()
+
+    if not organizer:
+        messages.error(request, "Data organizer tidak ditemukan.")
+        return redirect("event_list")
+
+    events_qs = (
+        Event.objects
+        .filter(organizer=organizer)
+        .select_related("venue", "organizer")
+        .prefetch_related("ticketcategory_set")
+        .order_by("event_datetime")
     )
 
+    events = [format_event(e) for e in events_qs]
+
+    return render(request, "event/my_event_list.html", {
+        "role": "organizer",
+        "events": events,
+        "venues": Venue.objects.all(),
+    })
+
+def create_event(request):
+    role = get_current_role(request)
+    if role not in ["admin", "organizer"]:
+        messages.error(request, "Anda tidak memiliki akses untuk membuat event.")
+        return redirect("event_list")
+
+    if request.method == "POST":
+        title = request.POST.get("event_title", "").strip()
+        date = request.POST.get("date")
+        time = request.POST.get("time")
+        venue_id = request.POST.get("venue_id")
+
+        event_datetime = datetime.strptime(f"{date} {time}", "%Y-%m-%d %H:%M")
+
+        if role == "organizer":
+            organizer = Organizer.objects.filter(user_id=request.session.get("user_id")).first()
+            if not organizer:
+                messages.error(request, "Data organizer tidak ditemukan.")
+                return redirect("event_list")
+        else:
+            organizer = Organizer.objects.first()
+            if not organizer:
+                messages.error(request, "Belum ada organizer yang tersedia.")
+                return redirect("admin_event_list")
+
+        Event.objects.create(
+            event_id=uuid.uuid4(),
+            event_title=title,
+            event_datetime=event_datetime,
+            venue_id=venue_id,
+            organizer=organizer,
+        )
+
+        messages.success(request, "Event berhasil dibuat.")
+
+    return redirect("my_event_list" if role == "organizer" else "admin_event_list")
+
+
+def update_event(request, event_id):
+    role = get_current_role(request)
+    event = get_object_or_404(Event, event_id=event_id)
+
+    if role not in ["admin", "organizer"]:
+        messages.error(request, "Anda tidak memiliki akses untuk mengubah event.")
+        return redirect("event_list")
+
+    if role == "organizer":
+        organizer = Organizer.objects.filter(user_id=request.session.get("user_id")).first()
+        if event.organizer != organizer:
+            messages.error(request, "Organizer hanya dapat mengubah event miliknya sendiri.")
+            return redirect("my_event_list")
+
+    if request.method == "POST":
+        title = request.POST.get("event_title", "").strip()
+        date = request.POST.get("date")
+        time = request.POST.get("time")
+        venue_id = request.POST.get("venue_id")
+
+        event.event_title = title
+        event.event_datetime = datetime.strptime(f"{date} {time}", "%Y-%m-%d %H:%M")
+        event.venue_id = venue_id
+        event.save()
+
+        messages.success(request, "Event berhasil diperbarui.")
+
+    return redirect("my_event_list" if role == "organizer" else "admin_event_list")
 
 def delete_seat(request, seat_id):
     # PERBAIKAN: filter menggunakan seat_id

@@ -18,7 +18,7 @@
     </div>
 
     {% if role == 'admin' or role == 'organizer' %}
-      <button onclick="openCreateEventModal()"
+      <button onclick="openCreateEventModal('{% url "create_event" %}')"
         class="bg-primary hover:bg-primaryHover text-white px-4 py-2 rounded-lg text-sm font-medium">
         + Buat Acara
       </button>
@@ -61,10 +61,11 @@
           {% if role == 'admin' or role == 'organizer' %}
             <div class="flex gap-2 mt-5">
               <button onclick="openEditEventModal(this)"
+                data-action="{% url 'update_event' event.id %}"
                 data-title="{{ event.title|escapejs }}"
                 data-date="{{ event.date }}"
                 data-time="{{ event.time }}"
-                data-venue="{{ event.venue|escapejs }}"
+                data-venue="{{ event.venue_id }}"
                 data-desc="{{ event.description|default:''|escapejs }}"
                 class="w-full bg-yellow-500 hover:bg-yellow-600 text-white py-2 rounded-lg text-sm">
                 Edit
@@ -91,13 +92,14 @@
 
     <h2 id="eventModalTitle" class="text-xl font-bold mb-8">Buat Acara Baru</h2>
 
-    <form class="grid grid-cols-1 md:grid-cols-2 gap-8">
+    <form id="eventForm" method="POST" class="grid grid-cols-1 md:grid-cols-2 gap-8">
+      {% csrf_token %}
       <div class="space-y-5">
         <div>
           <label class="block text-sm font-bold text-gray-500 mb-2">
             JUDUL ACARA (EVENT_TITLE)
           </label>
-          <input id="eventTitleInput" type="text"
+          <input id="eventTitleInput" name="event_title" type="text"
             class="w-full border border-gray-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-blue-500"
             placeholder="cth. Konser Melodi Senja">
         </div>
@@ -107,7 +109,7 @@
             <label class="block text-sm font-bold text-gray-500 mb-2">
               TANGGAL (DATE)
             </label>
-            <input id="eventDateInput" type="date"
+            <input id="eventDateInput" name="date" type="date"
               class="w-full border border-gray-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-blue-500">
           </div>
 
@@ -115,7 +117,7 @@
             <label class="block text-sm font-bold text-gray-500 mb-2">
               WAKTU (TIME)
             </label>
-            <input id="eventTimeInput" type="time"
+            <input id="eventTimeInput" name="time" type="time"
               class="w-full border border-gray-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-blue-500">
           </div>
         </div>
@@ -124,11 +126,11 @@
           <label class="block text-sm font-bold text-gray-500 mb-2">
             VENUE (VENUE_ID)
           </label>
-            <select id="eventVenueInput"
+            <select id="eventVenueInput" name="venue_id"
               class="w-full border border-gray-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-blue-500">
-              <option value="Jakarta Convention Center">Jakarta Convention Center</option>
-              <option value="Taman Impian Jaya Ancol">Taman Impian Jaya Ancol</option>
-              <option value="Bandung Hall Center">Bandung Hall Center</option>
+              {% for venue in venues %}
+                <option value="{{ venue.venue_id }}">{{ venue.venue_name }}</option>
+              {% endfor %}
             </select>
         </div>
 
@@ -196,7 +198,7 @@
           <label class="block text-sm font-bold text-gray-500 mb-2">
             DESKRIPSI
           </label>
-          <textarea id="eventDescriptionInput"
+          <textarea id="eventDescriptionInput" name="description"
             class="w-full border border-gray-200 rounded-xl px-4 py-3 min-h-32 outline-none focus:ring-2 focus:ring-blue-500"
             placeholder="Deskripsi acara..."></textarea>
         </div>
@@ -218,9 +220,10 @@
 </div>
 
 <script>
-  function openCreateEventModal() {
+  function openCreateEventModal(actionUrl) {
     document.getElementById("eventModalTitle").innerText = "Buat Acara Baru";
     document.getElementById("eventSubmitBtn").innerText = "Buat Acara";
+    document.getElementById("eventForm").action = actionUrl;
 
     document.getElementById("eventTitleInput").value = "";
     document.getElementById("eventDateInput").value = "";
@@ -233,7 +236,7 @@
   function openEditEventModal(btn) {
     document.getElementById("eventModalTitle").innerText = "Edit Acara";
     document.getElementById("eventSubmitBtn").innerText = "Simpan";
-
+    document.getElementById("eventForm").action = btn.dataset.action;
     document.getElementById("eventTitleInput").value = btn.dataset.title || "";
     document.getElementById("eventDateInput").value = btn.dataset.date || "";
     document.getElementById("eventTimeInput").value = btn.dataset.time || "";
