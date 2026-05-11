@@ -11,7 +11,7 @@
         <h1 class="text-3xl font-bold text-white mb-2">Kategori Tiket</h1>
         <p class="text-gray-400">Kelola kategori dan harga tiket per acara</p>
       </div>
-      {% if request.session.role == 'administrator' or request.session.role == 'organizer' %}
+      {% if role == 'administrator' or role == 'organizer' %}
         <button id="btnOpenAddModal" class="bg-primary hover:bg-primaryHover text-white font-medium px-5 py-2.5 rounded-lg transition-colors flex items-center gap-2"><span>+</span> Tambah Kategori</button>
       {% endif %}
     </div>
@@ -19,25 +19,17 @@
     <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
       <div class="bg-dark-card border border-dark-border rounded-xl p-6">
         <p class="text-sm text-gray-400 mb-1">TOTAL KATEGORI</p>
-        <h3 class="text-3xl font-bold text-white">8</h3>
+        <h3 class="text-3xl font-bold text-white">{{ categories|length }}</h3>
       </div>
       <div class="bg-dark-card border border-dark-border rounded-xl p-6">
-        <p class="text-sm text-gray-400 mb-1">TOTAL KUOTA</p>
-        <h3 class="text-3xl font-bold text-white">2,030</h3>
-      </div>
-      <div class="bg-dark-card border border-dark-border rounded-xl p-6">
-        <p class="text-sm text-gray-400 mb-1">HARGA TERTINGGI</p>
-        <h3 class="text-3xl font-bold text-primary">Rp 2,000,000</h3>
+        <p class="text-sm text-gray-400 mb-1">STATUS</p>
+        <h3 class="text-3xl font-bold text-green-400">Aktif</h3>
       </div>
     </div>
 
     <div class="bg-dark-card border border-dark-border rounded-xl overflow-hidden">
       <div class="p-4 border-b border-dark-border flex gap-4 bg-dark-bg/50">
         <input type="text" placeholder="Cari kategori..." class="flex-1 bg-dark-bg border border-dark-border rounded-lg px-4 py-2 text-sm text-gray-200 focus:border-primary focus:outline-none" />
-        <select class="bg-dark-bg border border-dark-border rounded-lg px-4 py-2 text-sm text-gray-200 focus:border-primary focus:outline-none">
-          <option>Semua Acara</option>
-          <option>Konser Melodi Senja</option>
-        </select>
       </div>
 
       <div class="overflow-x-auto">
@@ -48,135 +40,159 @@
               <th class="px-6 py-4 font-medium">Acara</th>
               <th class="px-6 py-4 font-medium">Harga</th>
               <th class="px-6 py-4 font-medium">Kuota</th>
-              {% if request.session.role == 'administrator' or request.session.role == 'organizer' %}
+              {% if role == 'administrator' or role == 'organizer' %}
                 <th class="px-6 py-4 font-medium text-right">Aksi</th>
               {% endif %}
             </tr>
           </thead>
           <tbody class="divide-y divide-dark-border">
-            <tr class="hover:bg-dark-bg/50 transition-colors">
-              <td class="px-6 py-4 font-medium text-white">WVIP</td>
-              <td class="px-6 py-4 text-gray-400">Konser Melodi Senja</td>
-              <td class="px-6 py-4 text-primary font-medium">Rp 1,500,000</td>
-              <td class="px-6 py-4">50 tiket</td>
-              {% if request.session.role == 'administrator' or request.session.role == 'organizer' %}
-                <td class="px-6 py-4 text-right space-x-3">
-                  <button class="btn-edit text-gray-400 hover:text-white transition-colors">Edit</button>
-                  <button class="btn-delete text-red-500 hover:text-red-400 transition-colors">Hapus</button>
-                </td>
-              {% endif %}
-            </tr>
+            {% for cat in categories %}
+              <tr class="hover:bg-dark-bg/50 transition-colors">
+                <td class="px-6 py-4 font-medium text-white">{{ cat.category_name }}</td>
+                <td class="px-6 py-4 text-gray-400">{{ cat.event_title }}</td>
+                <td class="px-6 py-4 text-primary font-medium">Rp {{ cat.price|floatformat:0 }}</td>
+                <td class="px-6 py-4">{{ cat.quota }} tiket</td>
+                {% if role == 'administrator' or role == 'organizer' %}
+                  <td class="px-6 py-4 text-right space-x-3">
+                    <button type="button" onclick="openEditModal('{{ cat.category_id }}', '{{ cat.tevent_id }}', '{{ cat.category_name|escapejs }}', '{{ cat.price|floatformat:0 }}', '{{ cat.quota }}')" class="text-gray-400 hover:text-white transition-colors">Edit</button>
+                    <button type="button" onclick="openDeleteModal('{{ cat.category_id }}', '{{ cat.category_name|escapejs }}')" class="text-red-500 hover:text-red-400 transition-colors">Hapus</button>
+                  </td>
+                {% endif %}
+              </tr>
+            {% empty %}
+              <tr>
+                <td colspan="5" class="px-6 py-8 text-center text-gray-500">Belum ada kategori tiket yang terdaftar.</td>
+              </tr>
+            {% endfor %}
           </tbody>
         </table>
       </div>
     </div>
   </div>
 
-  <div id="addModal" class="hidden fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
-    <div class="bg-dark-card border border-dark-border rounded-2xl w-full max-w-lg p-6 shadow-2xl">
-      <div class="flex justify-between items-center mb-6">
-        <h2 class="text-xl font-bold text-white">Tambah Kategori Baru</h2>
-        <button type="button" class="close-add text-gray-400 hover:text-white text-xl font-bold">✕</button>
-      </div>
-      <form class="space-y-4">
-        <div>
-          <label class="block text-xs font-medium text-gray-400 mb-1">ACARA *</label>
-          <select name="tevent_id" class="w-full bg-dark-bg border border-dark-border rounded-lg px-4 py-2.5 text-gray-200 focus:border-primary focus:outline-none">
-            <option value="">Pilih Acara</option>
-            <option value="uuid-dummy">Konser Melodi Senja</option>
-          </select>
+  {% if role == 'administrator' or role == 'organizer' %}
+    <div id="addModal" class="hidden fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
+      <div class="bg-dark-card border border-dark-border rounded-2xl w-full max-w-lg p-6 shadow-2xl">
+        <div class="flex justify-between items-center mb-6">
+          <h2 class="text-xl font-bold text-white">Tambah Kategori Baru</h2>
+          <button type="button" onclick="closeModal('addModal')" class="text-gray-400 hover:text-white text-xl font-bold">✕</button>
         </div>
-        <div>
-          <label class="block text-xs font-medium text-gray-400 mb-1">NAMA KATEGORI *</label>
-          <input type="text" name="category_name" placeholder="cth. WVIP" class="w-full bg-dark-bg border border-dark-border rounded-lg px-4 py-2.5 text-gray-200 focus:border-primary focus:outline-none" />
-        </div>
-        <div class="grid grid-cols-2 gap-4">
+        <form method="POST" action="{% url 'create_ticket_category' %}" class="space-y-4">
+          {% csrf_token %}
           <div>
-            <label class="block text-xs font-medium text-gray-400 mb-1">HARGA (RP) *</label>
-            <input type="number" name="price" placeholder="1500000" class="w-full bg-dark-bg border border-dark-border rounded-lg px-4 py-2.5 text-gray-200 focus:border-primary focus:outline-none" />
+            <label class="block text-xs font-medium text-gray-400 mb-1">ACARA *</label>
+            <select name="tevent_id" required class="w-full bg-dark-bg border border-dark-border rounded-lg px-4 py-2.5 text-gray-200 focus:border-primary focus:outline-none">
+              <option value="">Pilih Acara</option>
+              {% for event in events %}
+                <option value="{{ event.event_id }}">{{ event.event_title }}</option>
+              {% endfor %}
+            </select>
           </div>
           <div>
-            <label class="block text-xs font-medium text-gray-400 mb-1">KUOTA *</label>
-            <input type="number" name="quota" placeholder="50" class="w-full bg-dark-bg border border-dark-border rounded-lg px-4 py-2.5 text-gray-200 focus:border-primary focus:outline-none" />
+            <label class="block text-xs font-medium text-gray-400 mb-1">NAMA KATEGORI *</label>
+            <input type="text" name="category_name" required placeholder="cth. WVIP" class="w-full bg-dark-bg border border-dark-border rounded-lg px-4 py-2.5 text-gray-200 focus:border-primary focus:outline-none" />
           </div>
-        </div>
-        <div class="flex gap-3 pt-4">
-          <button type="button" class="close-add flex-1 bg-dark-bg border border-dark-border text-gray-300 hover:text-white py-2.5 rounded-lg transition-colors">Batal</button>
-          <button type="submit" class="flex-1 bg-primary hover:bg-primaryHover text-white font-medium py-2.5 rounded-lg transition-colors">Simpan</button>
-        </div>
-      </form>
-    </div>
-  </div>
-
-  <div id="editModal" class="hidden fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
-    <div class="bg-dark-card border border-dark-border rounded-2xl w-full max-w-lg p-6 shadow-2xl">
-      <div class="flex justify-between items-center mb-6">
-        <h2 class="text-xl font-bold text-white">Edit Kategori</h2>
-        <button type="button" class="close-edit text-gray-400 hover:text-white text-xl font-bold">✕</button>
-      </div>
-      <form class="space-y-4">
-        <div>
-          <label class="block text-xs font-medium text-gray-400 mb-1">ACARA *</label>
-          <select name="tevent_id" class="w-full bg-dark-bg border border-dark-border rounded-lg px-4 py-2.5 text-gray-200 focus:border-primary focus:outline-none">
-            <option value="uuid-dummy" selected>Konser Melodi Senja</option>
-          </select>
-        </div>
-        <div>
-          <label class="block text-xs font-medium text-gray-400 mb-1">NAMA KATEGORI *</label>
-          <input type="text" name="category_name" value="WVIP" class="w-full bg-dark-bg border border-dark-border rounded-lg px-4 py-2.5 text-gray-200 focus:border-primary focus:outline-none" />
-        </div>
-        <div class="grid grid-cols-2 gap-4">
-          <div>
-            <label class="block text-xs font-medium text-gray-400 mb-1">HARGA (RP) *</label>
-            <input type="number" name="price" value="1500000" class="w-full bg-dark-bg border border-dark-border rounded-lg px-4 py-2.5 text-gray-200 focus:border-primary focus:outline-none" />
+          <div class="grid grid-cols-2 gap-4">
+            <div>
+              <label class="block text-xs font-medium text-gray-400 mb-1">HARGA (RP) *</label>
+              <input type="number" name="price" required placeholder="1500000" class="w-full bg-dark-bg border border-dark-border rounded-lg px-4 py-2.5 text-gray-200 focus:border-primary focus:outline-none" />
+            </div>
+            <div>
+              <label class="block text-xs font-medium text-gray-400 mb-1">KUOTA *</label>
+              <input type="number" name="quota" required placeholder="50" class="w-full bg-dark-bg border border-dark-border rounded-lg px-4 py-2.5 text-gray-200 focus:border-primary focus:outline-none" />
+            </div>
           </div>
-          <div>
-            <label class="block text-xs font-medium text-gray-400 mb-1">KUOTA *</label>
-            <input type="number" name="quota" value="50" class="w-full bg-dark-bg border border-dark-border rounded-lg px-4 py-2.5 text-gray-200 focus:border-primary focus:outline-none" />
+          <div class="flex gap-3 pt-4">
+            <button type="button" onclick="closeModal('addModal')" class="flex-1 bg-dark-bg border border-dark-border text-gray-300 hover:text-white py-2.5 rounded-lg transition-colors">Batal</button>
+            <button type="submit" class="flex-1 bg-primary hover:bg-primaryHover text-white font-medium py-2.5 rounded-lg transition-colors">Simpan</button>
           </div>
-        </div>
-        <div class="flex gap-3 pt-4">
-          <button type="button" class="close-edit flex-1 bg-dark-bg border border-dark-border text-gray-300 hover:text-white py-2.5 rounded-lg transition-colors">Batal</button>
-          <button type="submit" class="flex-1 bg-primary hover:bg-primaryHover text-white font-medium py-2.5 rounded-lg transition-colors">Perbarui</button>
-        </div>
-      </form>
-    </div>
-  </div>
-
-  <div id="deleteModal" class="hidden fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
-    <div class="bg-dark-card border border-dark-border rounded-2xl w-full max-w-sm p-6 shadow-2xl text-center">
-      <div class="w-16 h-16 rounded-full bg-red-500/20 text-red-500 flex items-center justify-center mx-auto mb-4 text-3xl">!</div>
-      <h2 class="text-xl font-bold text-white mb-2">Hapus Kategori?</h2>
-      <p class="text-sm text-gray-400 mb-6">Tindakan ini tidak dapat dibatalkan. Kategori tiket akan dihapus permanen.</p>
-      <div class="flex gap-3">
-        <button type="button" class="close-delete flex-1 bg-dark-bg border border-dark-border text-gray-300 hover:text-white py-2.5 rounded-lg transition-colors">Batal</button>
-        <button type="button" class="flex-1 bg-red-600 hover:bg-red-700 text-white font-medium py-2.5 rounded-lg transition-colors">Ya, Hapus</button>
+        </form>
       </div>
     </div>
-  </div>
 
-  <script>
-    document.addEventListener('DOMContentLoaded', function () {
-      const addModal = document.getElementById('addModal')
-      document.getElementById('btnOpenAddModal').addEventListener('click', () => addModal.classList.remove('hidden'))
-      document.querySelectorAll('.close-add').forEach((btn) => btn.addEventListener('click', () => addModal.classList.add('hidden')))
-    
-      const editModal = document.getElementById('editModal')
-      document.querySelectorAll('.btn-edit').forEach((btn) => {
-        btn.addEventListener('click', () => editModal.classList.remove('hidden'))
+    <div id="editModal" class="hidden fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
+      <div class="bg-dark-card border border-dark-border rounded-2xl w-full max-w-lg p-6 shadow-2xl">
+        <div class="flex justify-between items-center mb-6">
+          <h2 class="text-xl font-bold text-white">Edit Kategori</h2>
+          <button type="button" onclick="closeModal('editModal')" class="text-gray-400 hover:text-white text-xl font-bold">✕</button>
+        </div>
+        <form id="editForm" method="POST" action="" class="space-y-4">
+          {% csrf_token %}
+          <div>
+            <label class="block text-xs font-medium text-gray-400 mb-1">ACARA *</label>
+            <select name="tevent_id" id="edit-event" required class="w-full bg-dark-bg border border-dark-border rounded-lg px-4 py-2.5 text-gray-200 focus:border-primary focus:outline-none">
+              {% for event in events %}
+                <option value="{{ event.event_id }}">{{ event.event_title }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-gray-400 mb-1">NAMA KATEGORI *</label>
+            <input type="text" name="category_name" id="edit-name" required class="w-full bg-dark-bg border border-dark-border rounded-lg px-4 py-2.5 text-gray-200 focus:border-primary focus:outline-none" />
+          </div>
+          <div class="grid grid-cols-2 gap-4">
+            <div>
+              <label class="block text-xs font-medium text-gray-400 mb-1">HARGA (RP) *</label>
+              <input type="number" name="price" id="edit-price" required class="w-full bg-dark-bg border border-dark-border rounded-lg px-4 py-2.5 text-gray-200 focus:border-primary focus:outline-none" />
+            </div>
+            <div>
+              <label class="block text-xs font-medium text-gray-400 mb-1">KUOTA *</label>
+              <input type="number" name="quota" id="edit-quota" required class="w-full bg-dark-bg border border-dark-border rounded-lg px-4 py-2.5 text-gray-200 focus:border-primary focus:outline-none" />
+            </div>
+          </div>
+          <div class="flex gap-3 pt-4">
+            <button type="button" onclick="closeModal('editModal')" class="flex-1 bg-dark-bg border border-dark-border text-gray-300 hover:text-white py-2.5 rounded-lg transition-colors">Batal</button>
+            <button type="submit" class="flex-1 bg-primary hover:bg-primaryHover text-white font-medium py-2.5 rounded-lg transition-colors">Perbarui</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <div id="deleteModal" class="hidden fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
+      <div class="bg-dark-card border border-dark-border rounded-2xl w-full max-w-sm p-6 shadow-2xl text-center">
+        <div class="w-16 h-16 rounded-full bg-red-500/20 text-red-500 flex items-center justify-center mx-auto mb-4 text-3xl">!</div>
+        <h2 class="text-xl font-bold text-white mb-2">Hapus Kategori?</h2>
+        <p class="text-sm text-gray-400 mb-6">
+          Tindakan ini tidak dapat dibatalkan. Kategori <span id="delete-category-name" class="font-bold text-white"></span> akan dihapus permanen.
+        </p>
+        <form id="deleteForm" method="POST" action="">
+          {% csrf_token %}
+          <div class="flex gap-3">
+            <button type="button" onclick="closeModal('deleteModal')" class="flex-1 bg-dark-bg border border-dark-border text-gray-300 hover:text-white py-2.5 rounded-lg transition-colors">Batal</button>
+            <button type="submit" class="flex-1 bg-red-600 hover:bg-red-700 text-white font-medium py-2.5 rounded-lg transition-colors">Ya, Hapus</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <script>
+      document.addEventListener('DOMContentLoaded', function () {
+        const addModal = document.getElementById('addModal')
+        const btnAdd = document.getElementById('btnOpenAddModal')
+        if (btnAdd) {
+          btnAdd.addEventListener('click', () => addModal.classList.remove('hidden'))
+        }
       })
-      document.querySelectorAll('.close-edit').forEach((btn) => btn.addEventListener('click', () => editModal.classList.add('hidden')))
-    
-      const deleteModal = document.getElementById('deleteModal')
-      document.querySelectorAll('.btn-delete').forEach((btn) => {
-        btn.addEventListener('click', () => deleteModal.classList.remove('hidden'))
-      })
-      document.querySelectorAll('.close-delete').forEach((btn) => btn.addEventListener('click', () => deleteModal.classList.add('hidden')))
-      ;[addModal, editModal, deleteModal].forEach((modal) => {
-        modal.addEventListener('click', function (event) {
-          if (event.target === modal) modal.classList.add('hidden')
-        })
-      })
-    })
-  </script>
+      
+      function openEditModal(id, eventId, name, price, quota) {
+        document.getElementById('editModal').classList.remove('hidden')
+        document.getElementById('editForm').action = `/ticket-category/update/${id}/` // Sesuaikan dengan path urls.py kamu
+      
+        document.getElementById('edit-event').value = eventId
+        document.getElementById('edit-name').value = name
+        document.getElementById('edit-price').value = price
+        document.getElementById('edit-quota').value = quota
+      }
+      
+      function openDeleteModal(id, name) {
+        document.getElementById('deleteModal').classList.remove('hidden')
+        document.getElementById('deleteForm').action = `/ticket-category/delete/${id}/` // Sesuaikan dengan path urls.py kamu
+        document.getElementById('delete-category-name').innerText = name
+      }
+      
+      function closeModal(modalId) {
+        document.getElementById(modalId).classList.add('hidden')
+      }
+    </script>
+  {% endif %}
 {% endblock %}
