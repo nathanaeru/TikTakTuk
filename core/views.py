@@ -25,66 +25,262 @@ def home_view(request):
 
 
 def artist_list_view(request):
+    # RBAC Read: Hanya pengguna yang sudah login
     if "user_id" not in request.session:
         messages.error(request, "Silakan login untuk melihat daftar artis.")
-        return redirect("login")
+        return redirect("auth:login")
 
-    return render(request, "artist/artist.html")
+    role = request.session.get("role", "guest")
+    search_query = request.GET.get("q", "").strip()  # Ambil parameter 'q'
+
+    with connection.cursor() as cursor:
+        cursor.execute("SET search_path TO TikTakTuk, public")
+
+        if search_query:
+            # Menggunakan ILIKE untuk pencarian case-insensitive pada name atau genre
+            search_param = f"%{search_query}%"
+            cursor.execute(
+                """
+                SELECT artist_id, name, genre 
+                FROM ARTIST 
+                WHERE name ILIKE %s OR genre ILIKE %s
+                ORDER BY name ASC
+            """,
+                [search_param, search_param],
+            )
+        else:
+            cursor.execute(
+                "SELECT artist_id, name, genre FROM ARTIST ORDER BY name ASC"
+            )
+
+        artists = [
+            {"artist_id": str(row[0]), "name": row[1], "genre": row[2]}
+            for row in cursor.fetchall()
+        ]
+
+    context = {
+        "artists": artists,
+        "role": role,
+        "search_query": search_query,  # Kirim kembali ke template untuk mempertahankan input
+    }
+    return render(request, "artist/artist.html", context)
 
 
 def create_artist(request):
-    # CREATE: Hanya Admin
+    # RBAC Create: Hanya Administrator
     if request.session.get("role") != "administrator":
+        messages.error(request, "Akses ditolak! Hanya Admin yang dapat menambah artis.")
         return redirect("artist_list")
-    # ... logika simpan data artis ...
-    pass
+
+    if request.method == "POST":
+        name = request.POST.get("name")
+        genre = request.POST.get("genre")
+        try:
+            with connection.cursor() as cursor:
+                cursor.execute("SET search_path TO TikTakTuk, public")
+                cursor.execute(
+                    "INSERT INTO ARTIST (name, genre) VALUES (%s, %s)", [name, genre]
+                )
+            messages.success(request, "Artis berhasil ditambahkan!")
+        except Exception as e:
+            messages.error(request, f"Gagal menambahkan artis: {e}")
+
+    return redirect("artist_list")
 
 
 def update_artist(request, artist_id):
-    # UPDATE: Hanya Admin
+    # RBAC Update: Hanya Administrator
     if request.session.get("role") != "administrator":
+        messages.error(request, "Akses ditolak! Hanya Admin yang dapat mengubah artis.")
         return redirect("artist_list")
-    # ... logika update data artis ...
-    pass
+
+    if request.method == "POST":
+        name = request.POST.get("name")
+        genre = request.POST.get("genre")
+        try:
+            with connection.cursor() as cursor:
+                cursor.execute("SET search_path TO TikTakTuk, public")
+                cursor.execute(
+                    "UPDATE ARTIST SET name = %s, genre = %s WHERE artist_id = %s",
+                    [name, genre, artist_id],
+                )
+            messages.success(request, "Data artis berhasil diperbarui!")
+        except Exception as e:
+            messages.error(request, f"Gagal memperbarui artis: {e}")
+
+    return redirect("artist_list")
 
 
 def delete_artist(request, artist_id):
-    # DELETE: Hanya Admin
+    # RBAC Delete: Hanya Administrator
     if request.session.get("role") != "administrator":
+        messages.error(
+            request, "Akses ditolak! Hanya Admin yang dapat menghapus artis."
+        )
         return redirect("artist_list")
-    # ... logika hapus data artis ...
-    pass
+
+    if request.method == "POST":
+        try:
+            with connection.cursor() as cursor:
+                cursor.execute("SET search_path TO TikTakTuk, public")
+                cursor.execute("DELETE FROM ARTIST WHERE artist_id = %s", [artist_id])
+            messages.success(request, "Artis berhasil dihapus!")
+        except Exception as e:
+            messages.error(request, f"Gagal menghapus artis: {e}")
+
+    return redirect("artist_list")
 
 
 def ticket_category_list_view(request):
-    return render(request, "ticket/ticket-category.html")
+    # RBAC Read: Guest (belum login) dan semua role bisa melihat
+    role = request.session.get("role", "guest")
+    user_id = request.session.get("user_id")
+    search_query = request.GET.get("q", "").strip()
+
+    with connection.cursor() as cursor:
+        cursor.execute("SET search_path TO TikTakTuk, public")
+
+        # Base query
+        base_sql = """
+            SELECT tc.category_id, tc.category_name, tc.quota, tc.price, tc.tevent_id, e.event_title
+            FROM TICKET_CATEGORY tc
+            JOIN EVENT e ON tc.tevent_id = e.event_id
+        """
+
+        if search_query:
+            search_param = f"%{search_query}%"
+            base_sql += " WHERE tc.category_name ILIKE %s OR e.event_title ILIKE %s"
+            base_sql += " ORDER BY e.event_datetime DESC, tc.price DESC"
+            cursor.execute(base_sql, [search_param, search_param])
+        else:
+            base_sql += " ORDER BY e.event_datetime DESC, tc.price DESC"
+            cursor.execute(base_sql)
+
+        categories = [
+            {
+                "category_id": str(row[0]),
+                "category_name": row[1],
+                "quota": row[2],
+                "price": row[3],
+                "tevent_id": str(row[4]),
+                "event_title": row[5],
+            }
+            for row in cursor.fetchall()
+        ]
+
+        # Fetch list Event untuk dropdown filter/tambah data di frontend
+        events = []
+        if role in ["administrator", "organizer"]:
+            if role == "organizer" and user_id:
+                cursor.execute(
+                    "SELECT organizer_id FROM ORGANIZER WHERE user_id = %s", [user_id]
+                )
+                org_row = cursor.fetchone()
+                if org_row:
+                    cursor.execute(
+                        "SELECT event_id, event_title FROM EVENT WHERE organizer_id = %s",
+                        [org_row[0]],
+                    )
+                    events = [
+                        {"event_id": str(r[0]), "event_title": r[1]}
+                        for r in cursor.fetchall()
+                    ]
+            else:
+                cursor.execute("SELECT event_id, event_title FROM EVENT")
+                events = [
+                    {"event_id": str(r[0]), "event_title": r[1]}
+                    for r in cursor.fetchall()
+                ]
+
+    context = {
+        "categories": categories,
+        "events": events,
+        "role": role,
+        "search_query": search_query,
+    }
+    return render(request, "ticket/ticket-category.html", context)
 
 
 def create_ticket_category(request):
-    # CREATE: Hanya Admin dan Organizer
+    # RBAC Create: Administrator & Organizer
     role = request.session.get("role")
     if role not in ["administrator", "organizer"]:
+        messages.error(request, "Akses ditolak! Anda tidak memiliki izin.")
         return redirect("ticket_category_list")
-    # ... logika simpan kategori tiket ...
-    pass
+
+    if request.method == "POST":
+        category_name = request.POST.get("category_name")
+        quota = request.POST.get("quota")
+        price = request.POST.get("price")
+        tevent_id = request.POST.get("tevent_id")
+
+        try:
+            with connection.cursor() as cursor:
+                cursor.execute("SET search_path TO TikTakTuk, public")
+                cursor.execute(
+                    """
+                    INSERT INTO TICKET_CATEGORY (category_name, quota, price, tevent_id)
+                    VALUES (%s, %s, %s, %s)
+                """,
+                    [category_name, quota, price, tevent_id],
+                )
+            messages.success(request, "Kategori tiket berhasil ditambahkan!")
+        except Exception as e:
+            messages.error(request, f"Gagal menambahkan kategori tiket: {e}")
+
+    return redirect("ticket_category_list")
 
 
 def update_ticket_category(request, category_id):
-    # UPDATE: Hanya Admin dan Organizer
+    # RBAC Update: Administrator & Organizer
     role = request.session.get("role")
     if role not in ["administrator", "organizer"]:
+        messages.error(request, "Akses ditolak! Anda tidak memiliki izin.")
         return redirect("ticket_category_list")
-    # ... logika update kategori tiket ...
-    pass
+
+    if request.method == "POST":
+        category_name = request.POST.get("category_name")
+        quota = request.POST.get("quota")
+        price = request.POST.get("price")
+        tevent_id = request.POST.get("tevent_id")
+
+        try:
+            with connection.cursor() as cursor:
+                cursor.execute("SET search_path TO TikTakTuk, public")
+                cursor.execute(
+                    """
+                    UPDATE TICKET_CATEGORY
+                    SET category_name = %s, quota = %s, price = %s, tevent_id = %s
+                    WHERE category_id = %s
+                """,
+                    [category_name, quota, price, tevent_id, category_id],
+                )
+            messages.success(request, "Kategori tiket berhasil diperbarui!")
+        except Exception as e:
+            messages.error(request, f"Gagal memperbarui kategori tiket: {e}")
+
+    return redirect("ticket_category_list")
 
 
 def delete_ticket_category(request, category_id):
-    # DELETE: Hanya Admin dan Organizer
+    # RBAC Delete: Administrator & Organizer
     role = request.session.get("role")
     if role not in ["administrator", "organizer"]:
+        messages.error(request, "Akses ditolak! Anda tidak memiliki izin.")
         return redirect("ticket_category_list")
-    # ... logika hapus kategori tiket ...
-    pass
+
+    if request.method == "POST":
+        try:
+            with connection.cursor() as cursor:
+                cursor.execute("SET search_path TO TikTakTuk, public")
+                cursor.execute(
+                    "DELETE FROM TICKET_CATEGORY WHERE category_id = %s", [category_id]
+                )
+            messages.success(request, "Kategori tiket berhasil dihapus!")
+        except Exception as e:
+            messages.error(request, f"Gagal menghapus kategori tiket: {e}")
+
+    return redirect("ticket_category_list")
 
 
 def get_role(user_id):
