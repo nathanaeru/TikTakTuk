@@ -1,11 +1,10 @@
 import uuid, json
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib import messages
-from django.db import connection, IntegrityError
 from django.db.models import Count, Sum
 from django.db.models import Count, Sum, Min
 from django.utils import timezone
-from django.db import IntegrityError
+from django.db import IntegrityError, DatabaseError, connection, transaction
 from django.contrib.auth import get_user_model
 import uuid, json
 from django.db.models.functions import Lower
@@ -780,6 +779,9 @@ def delete_seat(request, user_id, seat_id):
 
     return redirect('seat_management', user_id=user_id)
 
+def clean_db_error(e):
+    return str(e).split("CONTEXT:")[0].strip()
+
 def normalize_role(raw_role):
     if raw_role == "administrator":
         return "admin"
@@ -849,18 +851,22 @@ def create_venue(request):
             )
             return redirect("venue_list")
 
-        Venue.objects.create(
-            venue_id=uuid.uuid4(),
-            venue_name=name,
-            address=address,
-            city=city,
-            capacity=capacity,
-            jenis_seating=jenis_seating,
-        )
+        try:
+            Venue.objects.create(
+                venue_id=uuid.uuid4(),
+                venue_name=name,
+                address=address,
+                city=city,
+                capacity=capacity,
+                jenis_seating=jenis_seating,
+            )
 
-        messages.success(request, "Venue berhasil ditambahkan.")
+            messages.success(request, "Venue berhasil ditambahkan.")
 
-    return redirect("venue_list")
+        except DatabaseError as e:
+            messages.error(request, clean_db_error(e))
+
+        return redirect("venue_list")
 
 
 def update_venue(request, venue_id):
@@ -897,11 +903,14 @@ def update_venue(request, venue_id):
         venue.city = city
         venue.capacity = capacity
         venue.jenis_seating = jenis_seating
-        venue.save()
+        try:
+            venue.save()
+            messages.success(request, "Venue berhasil diperbarui.")
 
-        messages.success(request, "Venue berhasil diperbarui.")
+        except DatabaseError as e:
+            messages.error(request, clean_db_error(e))
 
-    return redirect("venue_list")
+        return redirect("venue_list")
 
 
 def delete_venue(request, venue_id):
@@ -924,8 +933,12 @@ def delete_venue(request, venue_id):
         )
         return redirect("venue_list")
 
-    venue.delete()
-    messages.success(request, "Venue berhasil dihapus.")
+    try:
+        venue.delete()
+        messages.success(request, "Venue berhasil dihapus.")
+
+    except DatabaseError as e:
+        messages.error(request, clean_db_error(e))
     return redirect("venue_list")
 
 def format_event(e):
@@ -949,7 +962,6 @@ def format_event(e):
         "categories": [c.category_name for c in categories],
         "icon": "🎵",
         "organizer_id": str(e.organizer_id),
-        "description": getattr(e, "description", ""),
     }
 
 
@@ -972,12 +984,13 @@ def event_list(request):
         events_qs = events_qs.filter(venue_id=venue_id)
 
     if artist_id:
-        events_qs = events_qs.filter(eventartist__artist_id=artist_id)
+        event_ids = EventArtist.objects.filter(artist_id=artist_id).values_list("event_id", flat=True)
+        events_qs = events_qs.filter(event_id__in=event_ids)
 
     events = [format_event(e) for e in events_qs.distinct()]
 
     return render(request, "event/event_list.html", {
-        "role": "customer",
+        "role": get_current_role(request),
         "events": events,
         "venues": Venue.objects.all(),
         "artists": Artist.objects.all(),
@@ -999,6 +1012,7 @@ def admin_event_list(request):
         "events": events,
         "venues": Venue.objects.all(),
         "organizers": Organizer.objects.all(),
+        "artists": Artist.objects.all(),
     })
 
 
@@ -1030,7 +1044,32 @@ def my_event_list(request):
         "role": "organizer",
         "events": events,
         "venues": Venue.objects.all(),
+        "artists": Artist.objects.all(),
     })
+
+def save_event_artists(event, artist_ids):
+    EventArtist.objects.filter(event=event).delete()
+
+    for artist_id in artist_ids:
+        if artist_id:
+            EventArtist.objects.create(
+                event=event,
+                artist_id=artist_id,
+            )
+
+
+def save_event_categories(event, names, prices, quotas):
+    TicketCategory.objects.filter(tevent=event).delete()
+
+    for name, price, quota in zip(names, prices, quotas):
+        if name and price and quota:
+            TicketCategory.objects.create(
+                category_id=uuid.uuid4(),
+                category_name=name,
+                price=price,
+                quota=quota,
+                tevent=event,
+            )
 
 def create_event(request):
     role = get_current_role(request)
@@ -1044,31 +1083,45 @@ def create_event(request):
         time = request.POST.get("time")
         venue_id = request.POST.get("venue_id")
 
-        event_datetime = datetime.strptime(f"{date} {time}", "%Y-%m-%d %H:%M")
+        artist_ids = request.POST.getlist("artist_ids")
+        category_names = request.POST.getlist("category_name")
+        category_prices = request.POST.getlist("category_price")
+        category_quotas = request.POST.getlist("category_quota")
 
-        if role == "organizer":
-            organizer = Organizer.objects.filter(user_id=request.session.get("user_id")).first()
-            if not organizer:
-                messages.error(request, "Data organizer tidak ditemukan.")
-                return redirect("event_list")
-        else:
-            organizer = Organizer.objects.first()
-            if not organizer:
-                messages.error(request, "Belum ada organizer yang tersedia.")
-                return redirect("admin_event_list")
+        try:
+            event_datetime = datetime.strptime(f"{date} {time}", "%Y-%m-%d %H:%M")
 
-        Event.objects.create(
-            event_id=uuid.uuid4(),
-            event_title=title,
-            event_datetime=event_datetime,
-            venue_id=venue_id,
-            organizer=organizer,
-        )
+            if role == "organizer":
+                organizer = Organizer.objects.filter(user_id=request.session.get("user_id")).first()
+                if not organizer:
+                    messages.error(request, "Data organizer tidak ditemukan.")
+                    return redirect("event_list")
+            else:
+                organizer = Organizer.objects.first()
+                if not organizer:
+                    messages.error(request, "Belum ada organizer yang tersedia.")
+                    return redirect("admin_event_list")
 
-        messages.success(request, "Event berhasil dibuat.")
+            with transaction.atomic():
+                event = Event.objects.create(
+                    event_id=uuid.uuid4(),
+                    event_title=title,
+                    event_datetime=event_datetime,
+                    venue_id=venue_id,
+                    organizer=organizer,
+                )
+
+                save_event_artists(event, artist_ids)
+                save_event_categories(event, category_names, category_prices, category_quotas)
+
+            messages.success(request, "Event berhasil dibuat.")
+
+        except DatabaseError as e:
+            messages.error(request, clean_db_error(e))
+        except Exception as e:
+            messages.error(request, f"Gagal membuat event: {e}")
 
     return redirect("my_event_list" if role == "organizer" else "admin_event_list")
-
 
 def update_event(request, event_id):
     role = get_current_role(request)
@@ -1090,12 +1143,27 @@ def update_event(request, event_id):
         time = request.POST.get("time")
         venue_id = request.POST.get("venue_id")
 
-        event.event_title = title
-        event.event_datetime = datetime.strptime(f"{date} {time}", "%Y-%m-%d %H:%M")
-        event.venue_id = venue_id
-        event.save()
+        artist_ids = request.POST.getlist("artist_ids")
+        category_names = request.POST.getlist("category_name")
+        category_prices = request.POST.getlist("category_price")
+        category_quotas = request.POST.getlist("category_quota")
 
-        messages.success(request, "Event berhasil diperbarui.")
+        try:
+            with transaction.atomic():
+                event.event_title = title
+                event.event_datetime = datetime.strptime(f"{date} {time}", "%Y-%m-%d %H:%M")
+                event.venue_id = venue_id
+                event.save()
+
+                save_event_artists(event, artist_ids)
+                save_event_categories(event, category_names, category_prices, category_quotas)
+
+            messages.success(request, "Event berhasil diperbarui.")
+
+        except DatabaseError as e:
+            messages.error(request, clean_db_error(e))
+        except Exception as e:
+            messages.error(request, f"Gagal memperbarui event: {e}")
 
     return redirect("my_event_list" if role == "organizer" else "admin_event_list")
 

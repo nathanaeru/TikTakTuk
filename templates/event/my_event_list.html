@@ -66,7 +66,6 @@
                 data-date="{{ event.date }}"
                 data-time="{{ event.time }}"
                 data-venue="{{ event.venue_id }}"
-                data-desc="{{ event.description|default:''|escapejs }}"
                 class="w-full bg-yellow-500 hover:bg-yellow-600 text-white py-2 rounded-lg text-sm">
                 Edit
               </button>
@@ -140,24 +139,12 @@
           </label>
 
           <div class="flex flex-wrap gap-2">
-            <button type="button" class="artist-chip border border-gray-200 px-3 py-2 rounded-xl text-sm hover:bg-blue-50">
-              Fourtwnty
-            </button>
-            <button type="button" class="artist-chip border border-gray-200 px-3 py-2 rounded-xl text-sm hover:bg-blue-50">
-              Hindia
-            </button>
-            <button type="button" class="artist-chip border border-gray-200 px-3 py-2 rounded-xl text-sm hover:bg-blue-50">
-              Tulus
-            </button>
-            <button type="button" class="artist-chip border border-gray-200 px-3 py-2 rounded-xl text-sm hover:bg-blue-50">
-              Nadin Amizah
-            </button>
-            <button type="button" class="artist-chip border border-gray-200 px-3 py-2 rounded-xl text-sm hover:bg-blue-50">
-              Pamungkas
-            </button>
-            <button type="button" class="artist-chip border border-gray-200 px-3 py-2 rounded-xl text-sm hover:bg-blue-50">
-              Raisa
-            </button>
+            {% for artist in artists %}
+              <label class="artist-chip border border-gray-200 px-3 py-2 rounded-xl text-sm hover:bg-blue-50 cursor-pointer">
+                <input type="checkbox" name="artist_ids" value="{{ artist.artist_id }}" class="mr-1">
+                {{ artist.name }}
+              </label>
+            {% endfor %}
           </div>
         </div>
       </div>
@@ -171,17 +158,17 @@
           <div id="ticketCategoryContainer" class="space-y-3">
             <div class="bg-gray-50 border border-gray-100 rounded-xl p-3">
               <div class="flex gap-2 mb-2">
-                <input type="text"
+                <input name="category_name" type="text"
                   class="flex-1 border border-gray-200 rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500"
                   value="Regular">
                 <button type="button" class="text-red-400 font-bold">⊗</button>
               </div>
 
               <div class="grid grid-cols-2 gap-2">
-                <input type="number"
+                <input name="category_price" type="number"
                   class="border border-gray-200 rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500"
                   placeholder="Harga" value="100000">
-                <input type="number"
+                <input name="category_quota" type="number"
                   class="border border-gray-200 rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500"
                   placeholder="Kuota" value="100">
               </div>
@@ -192,15 +179,6 @@
             class="text-blue-600 text-sm font-bold mt-3">
             + Tambah Kategori
           </button>
-        </div>
-
-        <div>
-          <label class="block text-sm font-bold text-gray-500 mb-2">
-            DESKRIPSI
-          </label>
-          <textarea id="eventDescriptionInput" name="description"
-            class="w-full border border-gray-200 rounded-xl px-4 py-3 min-h-32 outline-none focus:ring-2 focus:ring-blue-500"
-            placeholder="Deskripsi acara..."></textarea>
         </div>
       </div>
 
@@ -228,7 +206,6 @@
     document.getElementById("eventTitleInput").value = "";
     document.getElementById("eventDateInput").value = "";
     document.getElementById("eventTimeInput").value = "";
-    document.getElementById("eventDescriptionInput").value = "";
 
     document.getElementById("eventModal").classList.remove("hidden");
   }
@@ -240,7 +217,6 @@
     document.getElementById("eventTitleInput").value = btn.dataset.title || "";
     document.getElementById("eventDateInput").value = btn.dataset.date || "";
     document.getElementById("eventTimeInput").value = btn.dataset.time || "";
-    document.getElementById("eventDescriptionInput").value = btn.dataset.desc || "";
 
     const venueSelect = document.getElementById("eventVenueInput");
     if (venueSelect) {
@@ -261,17 +237,17 @@
     item.className = "bg-gray-50 border border-gray-100 rounded-xl p-3";
     item.innerHTML = `
       <div class="flex gap-2 mb-2">
-        <input type="text"
+        <input name="category_name" type="text"
           class="flex-1 border border-gray-200 rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500"
           placeholder="Nama kategori">
         <button type="button" onclick="this.closest('.bg-gray-50').remove()" class="text-red-400 font-bold">⊗</button>
       </div>
 
       <div class="grid grid-cols-2 gap-2">
-        <input type="number"
+        <input name="category_price"  type="number"
           class="border border-gray-200 rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500"
           placeholder="Harga">
-        <input type="number"
+        <input name="category_quota" type="number"
           class="border border-gray-200 rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500"
           placeholder="Kuota">
       </div>
