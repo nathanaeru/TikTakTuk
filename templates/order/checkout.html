@@ -1,0 +1,253 @@
+{% extends 'base.html' %}
+
+{% block title %}Checkout Tiket - TikTakTuk{% endblock %}
+
+{% block content %}
+<form method="POST" action="{% url 'checkout' %}" class="max-w-6xl mx-auto p-6 md:p-8">
+    {% csrf_token %}
+    
+    <div class="flex flex-col lg:flex-row gap-8">
+        
+        <!-- BAGIAN KIRI: Form Input -->
+        <div class="flex-1 flex flex-col gap-6">
+            
+            <!-- Header Event -->
+            <div class="bg-dark-card border border-dark-border rounded-2xl p-6 flex items-center gap-6 shadow-lg">
+                <div class="bg-primary/20 text-primary p-4 rounded-xl text-3xl border border-primary/30">
+                    🎵
+                </div>
+                <div>
+                    <h3 class="text-2xl font-bold text-white mb-2">Konser Melodi Senja</h3>
+                    <p class="text-gray-400 text-sm flex items-center gap-4">
+                        <span><b class="text-primary mr-1">📅</b> 2026-05-15 19:00</span>
+                        <span><b class="text-primary mr-1">📍</b> Jakarta Convention Center</span>
+                    </p>
+                </div>
+            </div>
+
+            <!-- Pilih Kategori Tiket -->
+            <div class="bg-dark-card border border-dark-border rounded-2xl p-6 shadow-lg">
+                <h3 class="text-xl font-bold text-white mb-1">Pilih Kategori Tiket</h3>
+                <p class="text-sm text-gray-400 mb-5">Setiap kategori memiliki fasilitas berbeda</p>
+                
+                <div class="flex flex-col gap-3">
+                    <label class="ticket-option flex justify-between items-center p-4 border border-dark-border bg-dark-bg rounded-xl cursor-pointer hover:border-primary transition-all">
+                        <div class="flex items-center gap-3">
+                            <input type="radio" name="ticket_category" value="WVIP" data-price="1500000" onchange="updateSummary()" class="w-5 h-5 accent-primary cursor-pointer">
+                            <div>
+                                <strong class="text-gray-200 text-lg block">WVIP</strong>
+                                <span class="text-xs text-gray-500">Kuota: 50 tiket</span>
+                            </div>
+                        </div>
+                        <div class="ticket-price font-bold text-gray-300 text-lg">Rp 1.500.000</div>
+                    </label>
+                    
+                    <label class="ticket-option flex justify-between items-center p-4 border border-dark-border bg-dark-bg rounded-xl cursor-pointer hover:border-primary transition-all">
+                        <div class="flex items-center gap-3">
+                            <input type="radio" name="ticket_category" value="VIP" data-price="750000" onchange="updateSummary()" class="w-5 h-5 accent-primary cursor-pointer">
+                            <div>
+                                <strong class="text-gray-200 text-lg block">VIP</strong>
+                                <span class="text-xs text-gray-500">Kuota: 150 tiket</span>
+                            </div>
+                        </div>
+                        <div class="ticket-price font-bold text-gray-300 text-lg">Rp 750.000</div>
+                    </label>
+
+                    <label class="ticket-option flex justify-between items-center p-4 border border-dark-border bg-dark-bg rounded-xl cursor-pointer hover:border-primary transition-all">
+                        <div class="flex items-center gap-3">
+                            <input type="radio" name="ticket_category" value="Category 1" data-price="450000" onchange="updateSummary()" class="w-5 h-5 accent-primary cursor-pointer">
+                            <div>
+                                <strong class="text-gray-200 text-lg block">Category 1</strong>
+                                <span class="text-xs text-gray-500">Kuota: 300 tiket</span>
+                            </div>
+                        </div>
+                        <div class="ticket-price font-bold text-gray-300 text-lg">Rp 450.000</div>
+                    </label>
+
+                    <label class="ticket-option flex justify-between items-center p-4 border border-primary bg-primary/10 rounded-xl cursor-pointer transition-all">
+                        <div class="flex items-center gap-3">
+                            <input type="radio" name="ticket_category" value="Category 2" data-price="250000" onchange="updateSummary()" checked class="w-5 h-5 accent-primary cursor-pointer">
+                            <div>
+                                <strong class="text-primary text-lg block">Category 2</strong>
+                                <span class="text-xs text-gray-400">Kuota: 500 tiket</span>
+                            </div>
+                        </div>
+                        <div class="ticket-price font-bold text-primary text-lg">Rp 250.000</div>
+                    </label>
+                </div>
+            </div>
+
+            <!-- Jumlah & Kursi -->
+            <div class="flex flex-col md:flex-row gap-6">
+                <!-- Jumlah Tiket -->
+                <div class="bg-dark-card border border-dark-border rounded-2xl p-6 shadow-lg flex-1">
+                    <h3 class="text-xl font-bold text-white mb-4">Jumlah Tiket</h3>
+                    <div class="flex items-center gap-3 mb-2 bg-dark-bg border border-dark-border p-2 rounded-xl w-fit">
+                        <button type="button" class="w-10 h-10 flex items-center justify-center bg-dark-card hover:bg-primary/20 hover:text-primary text-gray-300 rounded-lg transition-colors text-xl font-bold border border-dark-border" onclick="changeQty(-1)">-</button>
+                        <input type="text" name="quantity" id="qty-input" class="w-12 text-center bg-transparent text-white font-bold text-xl outline-none" value="2" readonly>
+                        <button type="button" class="w-10 h-10 flex items-center justify-center bg-dark-card hover:bg-primary/20 hover:text-primary text-gray-300 rounded-lg transition-colors text-xl font-bold border border-dark-border" onclick="changeQty(1)">+</button>
+                    </div>
+                    <span class="text-xs text-gray-500 mt-2 block">Max 10 tiket per transaksi</span>
+                </div>
+
+                <!-- Pilih Kursi -->
+                <div class="bg-dark-card border border-dark-border rounded-2xl p-6 shadow-lg flex-1">
+                    <h3 class="text-xl font-bold text-white mb-4">Pilih Kursi</h3>
+                    <input type="hidden" name="seat" id="selected-seat" value="">
+                    <div class="grid grid-cols-4 gap-3">
+                        <button type="button" class="seat-btn py-2 bg-dark-bg border border-dark-border rounded-lg text-sm text-gray-400 hover:border-primary hover:text-primary transition-colors" onclick="selectSeat(this, 'A1')">A1</button>
+                        <button type="button" class="seat-btn py-2 bg-dark-bg border border-dark-border rounded-lg text-sm text-gray-400 hover:border-primary hover:text-primary transition-colors" onclick="selectSeat(this, 'A2')">A2</button>
+                        <button type="button" class="seat-btn py-2 bg-dark-bg border border-dark-border rounded-lg text-sm text-gray-400 hover:border-primary hover:text-primary transition-colors" onclick="selectSeat(this, 'B1')">B1</button>
+                        <button type="button" class="seat-btn py-2 bg-dark-bg border border-dark-border rounded-lg text-sm text-gray-400 hover:border-primary hover:text-primary transition-colors" onclick="selectSeat(this, 'B2')">B2</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Kode Promo -->
+            <div class="bg-dark-card border border-dark-border rounded-2xl p-6 shadow-lg">
+                <h3 class="text-xl font-bold text-white mb-4">Kode Promo</h3>
+                <div class="flex gap-3">
+                    <input type="text" name="promo_code" id="promo-input" class="flex-1 bg-dark-bg border border-dark-border text-white rounded-xl px-4 py-3 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-colors placeholder-gray-600" placeholder="CONTOH: TIKTAK20">
+                    <button type="button" onclick="applyPromo()" class="bg-primary/20 hover:bg-primary text-primary hover:text-white border border-primary/50 font-medium px-6 py-3 rounded-xl transition-all">Terapkan</button>
+                </div>
+                <p id="promo-msg" class="text-sm font-medium mt-3 hidden"></p>
+            </div>
+        </div>
+
+        <!-- BAGIAN KANAN: Ringkasan Pesanan -->
+        <div class="w-full lg:w-[350px]">
+            <div class="bg-dark-card border border-dark-border rounded-2xl p-6 shadow-lg sticky top-24">
+                <h3 class="text-xl font-bold text-white mb-6">Ringkasan Pesanan</h3>
+                
+                <div class="flex justify-between items-center mb-4 text-gray-300">
+                    <span id="summary-cat-qty">Category 2 x 2</span>
+                    <span id="summary-base-price" class="font-medium">Rp 500.000</span>
+                </div>
+                <div class="flex justify-between items-center mb-4 text-gray-400">
+                    <span>Biaya Layanan</span>
+                    <span>Rp 0</span>
+                </div>
+                <div id="summary-discount-row" class="hidden justify-between items-center mb-4 text-green-400">
+                    <span>Diskon (20%)</span>
+                    <span id="summary-discount-amount" class="font-medium">-Rp 100.000</span>
+                </div>
+                
+                <hr class="border-dark-border my-6">
+                
+                <div class="flex justify-between items-center mb-8">
+                    <span class="text-lg text-white">Total</span>
+                    <span id="summary-total" class="text-2xl font-bold text-primary">Rp 500.000</span>
+                </div>
+                
+                <button type="submit" class="w-full bg-primary hover:bg-primaryHover text-white font-bold text-lg py-4 rounded-xl transition-colors shadow-lg shadow-primary/30">
+                    Bayar Sekarang
+                </button>
+                <p class="text-center text-xs text-gray-500 mt-5">Konfirmasi tiket akan dikirim ke email Anda.</p>
+            </div>
+        </div>
+
+    </div>
+</form>
+
+<script>
+    let isPromoApplied = false;
+
+    function formatRupiah(angka) {
+        return 'Rp ' + angka.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+    }
+
+    function updateSummary() {
+        const qty = parseInt(document.getElementById('qty-input').value);
+        const selectedRadio = document.querySelector('input[name="ticket_category"]:checked');
+        const pricePerTicket = parseInt(selectedRadio.getAttribute('data-price'));
+        const categoryName = selectedRadio.value;
+
+        const baseTotal = qty * pricePerTicket;
+        let finalTotal = baseTotal;
+        let discountAmount = 0;
+
+        // Reset semua style opsi tiket ke default (unselected)
+        document.querySelectorAll('.ticket-option').forEach(el => {
+            el.classList.remove('border-primary', 'bg-primary/10');
+            el.classList.add('border-dark-border', 'bg-dark-bg');
+            el.querySelector('strong').classList.remove('text-primary');
+            el.querySelector('strong').classList.add('text-gray-200');
+            el.querySelector('.ticket-price').classList.remove('text-primary');
+            el.querySelector('.ticket-price').classList.add('text-gray-300');
+        });
+        
+        // Kasih style warna Primary ke opsi yang terpilih
+        const activeOption = selectedRadio.closest('.ticket-option');
+        activeOption.classList.remove('border-dark-border', 'bg-dark-bg');
+        activeOption.classList.add('border-primary', 'bg-primary/10');
+        activeOption.querySelector('strong').classList.remove('text-gray-200');
+        activeOption.querySelector('strong').classList.add('text-primary');
+        activeOption.querySelector('.ticket-price').classList.remove('text-gray-300');
+        activeOption.querySelector('.ticket-price').classList.add('text-primary');
+
+        // Hitung diskon promo
+        const discountRow = document.getElementById('summary-discount-row');
+        if (isPromoApplied) {
+            discountAmount = baseTotal * 0.2; 
+            finalTotal = baseTotal - discountAmount;
+            discountRow.classList.remove('hidden');
+            discountRow.classList.add('flex');
+            document.getElementById('summary-discount-amount').innerText = '-' + formatRupiah(discountAmount);
+        } else {
+            discountRow.classList.remove('flex');
+            discountRow.classList.add('hidden');
+        }
+
+        // Tembak harga ke HTML
+        document.getElementById('summary-cat-qty').innerText = `${categoryName} x ${qty}`;
+        document.getElementById('summary-base-price').innerText = formatRupiah(baseTotal);
+        document.getElementById('summary-total').innerText = formatRupiah(finalTotal);
+    }
+
+    function changeQty(amount) {
+        const input = document.getElementById('qty-input');
+        let currentVal = parseInt(input.value);
+        let newVal = currentVal + amount;
+        if (newVal >= 1 && newVal <= 10) {
+            input.value = newVal;
+            updateSummary();
+        }
+    }
+
+    function applyPromo() {
+        const promoVal = document.getElementById('promo-input').value.toUpperCase().trim();
+        const msg = document.getElementById('promo-msg');
+        
+        msg.classList.remove('hidden', 'text-green-400', 'text-red-400');
+        if (promoVal === 'TIKTAK20') {
+            isPromoApplied = true;
+            msg.innerText = "✅ Kode promo valid! Diskon 20% diterapkan.";
+            msg.classList.add('text-green-400');
+        } else if (promoVal === '') {
+            isPromoApplied = false;
+            msg.classList.add('hidden');
+        } else {
+            isPromoApplied = false;
+            msg.innerText = "❌ Kode promo tidak valid.";
+            msg.classList.add('text-red-400');
+        }
+        updateSummary();
+    }
+
+    // Fungsi Pilih Kursi (udah direvisi pakai background dark mode)
+    function selectSeat(btn, seatNumber) {
+        document.querySelectorAll('.seat-btn').forEach(b => {
+            b.classList.remove('bg-primary', 'text-white', 'border-primary');
+            b.classList.add('bg-dark-bg', 'text-gray-400', 'border-dark-border');
+        });
+        
+        btn.classList.remove('bg-dark-bg', 'text-gray-400', 'border-dark-border');
+        btn.classList.add('bg-primary', 'text-white', 'border-primary');
+        
+        document.getElementById('selected-seat').value = seatNumber;
+    }
+
+    // Panggil saat page diload
+    window.onload = updateSummary;
+</script>
+{% endblock %}

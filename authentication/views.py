@@ -1,20 +1,16 @@
-from django.shortcuts import render, redirect, get_object_or_404
+from django.shortcuts import render, redirect
 from django.contrib import messages
 from django.contrib.auth.hashers import make_password, check_password
-from django.db import transaction
-from .models import UserAccount, Role, AccountRole, Customer, Organizer
+from django.db import connection
 
 
 def choose_role_view(request):
-    """Halaman pilihan role sebelum registrasi"""
     if "user_id" in request.session:
         return redirect("dashboard")
-
     return render(request, "auth/choose_role.html")
 
 
 def register_customer_view(request):
-    """Registrasi untuk Pelanggan"""
     if "user_id" in request.session:
         return redirect("dashboard")
 
@@ -23,49 +19,50 @@ def register_customer_view(request):
         password = request.POST.get("password")
         confirm_password = request.POST.get("confirm_password")
         full_name = request.POST.get("full_name")
-        email = request.POST.get("email")
         phone = request.POST.get("phone")
 
-        # Validasi dasar
         if password != confirm_password:
             messages.error(request, "Password dan Konfirmasi Password tidak cocok!")
             return redirect("auth:register_customer")
 
-        if UserAccount.objects.filter(username=username).exists():
-            messages.error(
-                request, "Username sudah digunakan, silakan pilih yang lain."
-            )
-            return redirect("auth:register_customer")
-
         try:
-            with transaction.atomic():
-                # 1. Buat Akun Utama dengan password yang di-hash
-                new_user = UserAccount.objects.create(
-                    username=username,
-                    password=make_password(password),
+            with connection.cursor() as cursor:
+                cursor.execute("SET search_path TO TikTakTuk, public")
+
+                # 1. Insert Akun Utama (Trigger akan menangkap jika ada duplikasi)
+                hashed_pw = make_password(password)
+                cursor.execute(
+                    "INSERT INTO USER_ACCOUNT (username, password) VALUES (%s, %s) RETURNING user_id",
+                    [username, hashed_pw],
                 )
+                user_id = cursor.fetchone()[0]
 
                 # 2. Petakan Role
-                role_obj, created = Role.objects.get_or_create(role_name="customer")
-                AccountRole.objects.create(user=new_user, role=role_obj)
+                cursor.execute("SELECT role_id FROM ROLE WHERE role_name = 'customer'")
+                role_id = cursor.fetchone()[0]
+                cursor.execute(
+                    "INSERT INTO ACCOUNT_ROLE (role_id, user_id) VALUES (%s, %s)",
+                    [role_id, user_id],
+                )
 
-                # 3. Simpan ke profil Customer
-                Customer.objects.create(
-                    full_name=full_name, phone_number=phone, user=new_user
+                # 3. Simpan Profil Customer
+                cursor.execute(
+                    "INSERT INTO CUSTOMER (full_name, phone_number, user_id) VALUES (%s, %s, %s)",
+                    [full_name, phone, user_id],
                 )
 
             messages.success(request, "Akun pelanggan berhasil dibuat! Silakan login.")
             return redirect("auth:login")
 
         except Exception as e:
-            messages.error(request, f"Terjadi kesalahan saat mendaftar: {str(e)}")
+            # Error message akan mengambil pesan RAISE EXCEPTION dari Trigger di database
+            messages.error(request, f"Gagal mendaftar: {str(e)}")
             return redirect("auth:register_customer")
 
     return render(request, "auth/register_customer.html")
 
 
 def register_organizer_view(request):
-    """Registrasi untuk Penyelenggara"""
     if "user_id" in request.session:
         return redirect("dashboard")
 
@@ -76,32 +73,32 @@ def register_organizer_view(request):
         organizer_name = request.POST.get("organizer_name")
         email = request.POST.get("email")
 
-        # Validasi dasar
         if password != confirm_password:
             messages.error(request, "Password dan Konfirmasi Password tidak cocok!")
             return redirect("auth:register_organizer")
 
-        if UserAccount.objects.filter(username=username).exists():
-            messages.error(
-                request, "Username sudah digunakan, silakan pilih yang lain."
-            )
-            return redirect("auth:register_organizer")
-
         try:
-            with transaction.atomic():
-                # 1. Buat Akun Utama dengan password yang di-hash
-                new_user = UserAccount.objects.create(
-                    username=username,
-                    password=make_password(password),
+            with connection.cursor() as cursor:
+                cursor.execute("SET search_path TO TikTakTuk, public")
+
+                hashed_pw = make_password(password)
+                cursor.execute(
+                    "INSERT INTO USER_ACCOUNT (username, password) VALUES (%s, %s) RETURNING user_id",
+                    [username, hashed_pw],
+                )
+                user_id = cursor.fetchone()[0]
+
+                cursor.execute("SELECT role_id FROM ROLE WHERE role_name = 'organizer'")
+                role_id = cursor.fetchone()[0]
+
+                cursor.execute(
+                    "INSERT INTO ACCOUNT_ROLE (role_id, user_id) VALUES (%s, %s)",
+                    [role_id, user_id],
                 )
 
-                # 2. Petakan Role
-                role_obj, created = Role.objects.get_or_create(role_name="organizer")
-                AccountRole.objects.create(user=new_user, role=role_obj)
-
-                # 3. Simpan ke profil Organizer
-                Organizer.objects.create(
-                    organizer_name=organizer_name, contact_email=email, user=new_user
+                cursor.execute(
+                    "INSERT INTO ORGANIZER (organizer_name, contact_email, user_id) VALUES (%s, %s, %s)",
+                    [organizer_name, email, user_id],
                 )
 
             messages.success(
@@ -110,14 +107,13 @@ def register_organizer_view(request):
             return redirect("auth:login")
 
         except Exception as e:
-            messages.error(request, f"Terjadi kesalahan saat mendaftar: {str(e)}")
+            messages.error(request, f"Gagal mendaftar: {str(e)}")
             return redirect("auth:register_organizer")
 
     return render(request, "auth/register_organizer.html")
 
 
 def register_admin_view(request):
-    """Registrasi untuk Administrator"""
     if "user_id" in request.session:
         return redirect("dashboard")
 
@@ -126,30 +122,30 @@ def register_admin_view(request):
         password = request.POST.get("password")
         confirm_password = request.POST.get("confirm_password")
 
-        # Validasi dasar
         if password != confirm_password:
             messages.error(request, "Password dan Konfirmasi Password tidak cocok!")
             return redirect("auth:register_admin")
 
-        if UserAccount.objects.filter(username=username).exists():
-            messages.error(
-                request, "Username sudah digunakan, silakan pilih yang lain."
-            )
-            return redirect("auth:register_admin")
-
         try:
-            with transaction.atomic():
-                # 1. Buat Akun Utama dengan password yang di-hash
-                new_user = UserAccount.objects.create(
-                    username=username,
-                    password=make_password(password),
-                )
+            with connection.cursor() as cursor:
+                cursor.execute("SET search_path TO TikTakTuk, public")
 
-                # 2. Petakan Role
-                role_obj, created = Role.objects.get_or_create(
-                    role_name="administrator"
+                hashed_pw = make_password(password)
+                cursor.execute(
+                    "INSERT INTO USER_ACCOUNT (username, password) VALUES (%s, %s) RETURNING user_id",
+                    [username, hashed_pw],
                 )
-                AccountRole.objects.create(user=new_user, role=role_obj)
+                user_id = cursor.fetchone()[0]
+
+                cursor.execute(
+                    "SELECT role_id FROM ROLE WHERE role_name = 'administrator'"
+                )
+                role_id = cursor.fetchone()[0]
+
+                cursor.execute(
+                    "INSERT INTO ACCOUNT_ROLE (role_id, user_id) VALUES (%s, %s)",
+                    [role_id, user_id],
+                )
 
             messages.success(
                 request, "Akun administrator berhasil dibuat! Silakan login."
@@ -157,14 +153,13 @@ def register_admin_view(request):
             return redirect("auth:login")
 
         except Exception as e:
-            messages.error(request, f"Terjadi kesalahan saat mendaftar: {str(e)}")
+            messages.error(request, f"Gagal mendaftar: {str(e)}")
             return redirect("auth:register_admin")
 
     return render(request, "auth/register_admin.html")
 
 
 def login_view(request):
-    # Jika user sudah memiliki session, arahkan langsung ke dashboard utama
     if "user_id" in request.session:
         return redirect("dashboard")
 
@@ -173,49 +168,54 @@ def login_view(request):
         password = request.POST.get("password")
 
         try:
-            # Cari user berdasarkan username
-            user = UserAccount.objects.get(username=username)
+            with connection.cursor() as cursor:
+                cursor.execute("SET search_path TO TikTakTuk, public")
 
-            # Cocokkan password (hash dari register baru ATAU plaintext dari data dummy SQL)
-            if check_password(password, user.password) or password == user.password:
-
-                # Cek role user (harus tepat 1 role karena enforcment 1:n)
-                user_role = (
-                    AccountRole.objects.filter(user=user).select_related("role").first()
+                cursor.execute(
+                    "SELECT user_id, username, password FROM USER_ACCOUNT WHERE username = %s",
+                    [username],
                 )
+                user_row = cursor.fetchone()
 
-                if user_role:
-                    # Simpan user_id dan role ke session
-                    request.session["user_id"] = str(user.user_id)
-                    request.session["username"] = user.username
-                    request.session["role"] = user_role.role.role_name.lower()
-                    request.session.save()
+                if user_row:
+                    user_id, db_username, db_password = user_row
 
-                    messages.success(request, f"Selamat datang, {user.username}!")
-                    return redirect("dashboard")
+                    if check_password(password, db_password) or password == db_password:
+                        cursor.execute(
+                            """
+                            SELECT r.role_name 
+                            FROM ACCOUNT_ROLE ar
+                            JOIN ROLE r ON ar.role_id = r.role_id
+                            WHERE ar.user_id = %s
+                        """,
+                            [user_id],
+                        )
+                        role_row = cursor.fetchone()
+
+                        if role_row:
+                            request.session["user_id"] = str(user_id)
+                            request.session["username"] = db_username
+                            request.session["role"] = role_row[0].lower()
+                            request.session.save()
+
+                            messages.success(request, f"Selamat datang, {db_username}!")
+                            return redirect("dashboard")
+                        else:
+                            messages.error(
+                                request, "User tidak memiliki role yang valid."
+                            )
+                    else:
+                        messages.error(request, "Username atau password salah!")
                 else:
-                    # User tidak memiliki role (seharusnya tidak terjadi)
-                    messages.error(request, "User tidak memiliki role yang valid.")
-            else:
-                messages.error(request, "Username atau password salah!")
-        except UserAccount.DoesNotExist:
-            messages.error(request, "Username atau password salah!")
+                    messages.error(request, "Username atau password salah!")
+
+        except Exception as e:
+            messages.error(request, f"Terjadi kesalahan: {e}")
 
     return render(request, "auth/login.html")
 
 
 def logout_view(request):
-    # Hapus semua data session (logout)
     request.session.flush()
     messages.success(request, "Anda berhasil logout.")
     return redirect("auth:login")
-
-
-# DEPRECATED: select_role_view no longer needed since each user has exactly 1 role (1:n relationship)
-# def select_role_view(request):
-#     """
-#     Halaman pemilihan role (DEPRECATED)
-#     Dengan enforcement 1:n, setiap user hanya bisa punya 1 role.
-#     Jadi flow login langsung set role dari database.
-#     """
-#     pass
