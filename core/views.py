@@ -708,164 +708,267 @@ def delete_seat(request, seat_id):
 
     return redirect("seat_management")
 
+
 User = get_user_model()
 
 # ==========================================
-# VARIABEL INI BUAT NGETES UI 
+# VARIABEL INI BUAT NGETES UI
 # Pilihan: 'Admin', 'Organizer', atau 'Customer'
 # ==========================================
-SIMULASI_ROLE = 'Admin' 
+SIMULASI_ROLE = "Admin"
+
 
 def checkout_view(request):
     ticket_prices = {
-        'WVIP': 1500000,
-        'VIP': 750000,
-        'Category 1': 450000,
-        'Category 2': 250000
+        "WVIP": 1500000,
+        "VIP": 750000,
+        "Category 1": 450000,
+        "Category 2": 250000,
     }
 
-    if request.method == 'POST':
-        category = request.POST.get('ticket_category')
-        quantity = int(request.POST.get('quantity', 0))
-        seat = request.POST.get('seat', '')
-        promo = request.POST.get('promo_code', '')
+    if request.method == "POST":
+        category = request.POST.get("ticket_category")
+        quantity = int(request.POST.get("quantity", 0))
+        seat = request.POST.get("seat", "")
+        promo = request.POST.get("promo_code", "")
 
         if category not in ticket_prices:
             messages.error(request, "Pilih kategori tiket yang valid.")
-            return redirect('checkout')
+            return redirect("checkout")
 
         if quantity <= 0 or quantity > 10:
             messages.error(request, "Jumlah tiket harus antara 1 - 10 per transaksi.")
-            return redirect('checkout')
+            return redirect("checkout")
 
         base_price = ticket_prices[category]
         total_price = base_price * quantity
 
-        if promo == 'TIKTAK20':
+        if promo == "TIKTAK20":
             total_price = total_price * 0.8
-        elif promo and promo != 'TIKTAK20':
+        elif promo and promo != "TIKTAK20":
             messages.error(request, "Kode promo tidak valid.")
-            return redirect('checkout')
-        dummy_user = User.objects.first() 
-        
-        if dummy_user:
-            Order.objects.create(
-                customer=dummy_user,
-                total_amount=total_price,
-                ticket_category=category,
-                quantity=quantity,
-                seat_number=seat,
-                promo_code=promo,
-                payment_status='Pending'
-            )
-            messages.success(request, "Pesanan berhasil dibuat!")
-        else:
-            messages.error(request, "Gagal save: Belum ada user sama sekali di database.")
+            return redirect("checkout")
 
-        return redirect('daftar_order') 
+        try:
+            with connection.cursor() as cursor:
+                cursor.execute("SET search_path TO TikTakTuk, public")
+                # Simulasi mengambil customer_id pertama dari database
+                cursor.execute("SELECT customer_id FROM CUSTOMER LIMIT 1")
+                cust_row = cursor.fetchone()
 
-    return render(request, 'order/checkout.html')
+                if cust_row:
+                    # Insert Order menggunakan raw query
+                    cursor.execute(
+                        """
+                        INSERT INTO "ORDER" (order_date, payment_status, total_amount, customer_id)
+                        VALUES (NOW(), 'Pending', %s, %s)
+                    """,
+                        [total_price, cust_row[0]],
+                    )
+                    messages.success(request, "Pesanan berhasil dibuat!")
+                else:
+                    messages.error(
+                        request,
+                        "Gagal save: Belum ada customer sama sekali di database.",
+                    )
+        except Exception as e:
+            messages.error(request, f"Terjadi kesalahan saat memproses pesanan: {e}")
+
+        return redirect("daftar_order")
+
+    return render(request, "order/checkout.html")
 
 
 def daftar_order_view(request):
-    orders = Order.objects.all().order_by('-order_date')
-    total_order = orders.count()
-    lunas_count = orders.filter(payment_status='Paid').count()
-    pending_count = orders.filter(payment_status='Pending').count()
-    
-    total_revenue = 0
-    if SIMULASI_ROLE in ['Admin', 'Organizer']:
-        revenue_aggr = orders.filter(payment_status='Paid').aggregate(Sum('total_amount'))
-        total_revenue = revenue_aggr['total_amount__sum'] or 0
+    try:
+        with connection.cursor() as cursor:
+            cursor.execute("SET search_path TO TikTakTuk, public")
+
+            cursor.execute("""
+                SELECT order_id, order_date, payment_status, total_amount, customer_id 
+                FROM "ORDER" ORDER BY order_date DESC
+            """)
+            orders = cursor.fetchall()
+
+            cursor.execute('SELECT COUNT(*) FROM "ORDER"')
+            total_order = cursor.fetchone()[0]
+
+            cursor.execute(
+                "SELECT COUNT(*) FROM \"ORDER\" WHERE payment_status = 'LUNAS'"
+            )
+            lunas_count = cursor.fetchone()[0]
+
+            cursor.execute(
+                "SELECT COUNT(*) FROM \"ORDER\" WHERE payment_status = 'PENDING'"
+            )
+            pending_count = cursor.fetchone()[0]
+
+            total_revenue = 0
+            if SIMULASI_ROLE in ["Admin", "Organizer"]:
+                cursor.execute(
+                    "SELECT SUM(total_amount) FROM \"ORDER\" WHERE payment_status = 'LUNAS'"
+                )
+                revenue_res = cursor.fetchone()[0]
+                total_revenue = revenue_res if revenue_res else 0
+
+            # Transform raw tuple ke dictionary agar template tetap bisa render
+            orders_dict = [
+                {
+                    "order_id": row[0],
+                    "order_date": row[1],
+                    "payment_status": row[2],
+                    "total_amount": row[3],
+                    "customer_id": row[4],
+                }
+                for row in orders
+            ]
+
+    except Exception as e:
+        orders_dict = []
+        total_order = lunas_count = pending_count = total_revenue = 0
 
     context = {
-        'orders': orders,
-        'total_order': total_order,
-        'lunas_count': lunas_count,
-        'pending_count': pending_count,
-        'total_revenue': total_revenue,
-        'user_role': SIMULASI_ROLE,
+        "orders": orders_dict,
+        "total_order": total_order,
+        "lunas_count": lunas_count,
+        "pending_count": pending_count,
+        "total_revenue": total_revenue,
+        "user_role": SIMULASI_ROLE,
     }
-    return render(request, 'order/order_list.html', context)
+    return render(request, "order/order_list.html", context)
+
 
 def update_order_status(request, order_id):
-    if SIMULASI_ROLE != 'Admin':
+    if SIMULASI_ROLE != "Admin":
         messages.error(request, "Akses ditolak!")
-        return redirect('daftar_order')
+        return redirect("daftar_order")
 
-    order = get_object_or_404(Order, order_id=order_id)
-    if request.method == 'POST':
-        new_status = request.POST.get('payment_status')
-        order.payment_status = new_status
-        order.save()
+    if request.method == "POST":
+        new_status = request.POST.get("payment_status")
+        with connection.cursor() as cursor:
+            cursor.execute("SET search_path TO TikTakTuk, public")
+            cursor.execute(
+                'UPDATE "ORDER" SET payment_status = %s WHERE order_id = %s',
+                [new_status, order_id],
+            )
         messages.success(request, f"Status Order {order_id} berhasil diperbarui!")
-        
-    return redirect('daftar_order')
+
+    return redirect("daftar_order")
+
 
 def delete_order(request, order_id):
-    if SIMULASI_ROLE != 'Admin':
+    if SIMULASI_ROLE != "Admin":
         messages.error(request, "Akses ditolak!")
-        return redirect('daftar_order')
+        return redirect("daftar_order")
 
-    order = get_object_or_404(Order, order_id=order_id)
-    if request.method == 'POST':
-        order.delete()
+    if request.method == "POST":
+        with connection.cursor() as cursor:
+            cursor.execute("SET search_path TO TikTakTuk, public")
+            cursor.execute('DELETE FROM "ORDER" WHERE order_id = %s', [order_id])
         messages.success(request, f"Data Order {order_id} berhasil dihapus!")
-        
-    return redirect('daftar_order')
+
+    return redirect("daftar_order")
+
 
 def promotion_list_view(request):
-    promotions = Promotion.objects.all().order_by('-start_date') 
-    
+    with connection.cursor() as cursor:
+        cursor.execute("SET search_path TO TikTakTuk, public")
+        cursor.execute("""
+            SELECT promotion_id, promo_code, discount_type, discount_value, start_date, end_date, usage_limit 
+            FROM PROMOTION ORDER BY start_date DESC
+        """)
+        promotions = [
+            {
+                "promotion_id": row[0],
+                "promo_code": row[1],
+                "discount_type": row[2],
+                "discount_value": row[3],
+                "start_date": row[4],
+                "end_date": row[5],
+                "usage_limit": row[6],
+            }
+            for row in cursor.fetchall()
+        ]
+
     context = {
-        'promotions': promotions,
-        'user_role': SIMULASI_ROLE,
+        "promotions": promotions,
+        "user_role": SIMULASI_ROLE,
     }
-    return render(request, 'promotion/promotion_list.html', context)
+    return render(request, "promotion/promotion_list.html", context)
+
 
 def create_promotion(request):
-    if SIMULASI_ROLE != 'Admin':
+    if SIMULASI_ROLE != "Admin":
         messages.error(request, "Akses ditolak!")
-        return redirect('promotion_list')
-        
-    if request.method == 'POST':
-        Promotion.objects.create(
-            promo_code=request.POST.get('promo_code').upper(),
-            discount_type=request.POST.get('discount_type'),
-            discount_value=request.POST.get('discount_value'),
-            start_date=request.POST.get('start_date'),
-            end_date=request.POST.get('end_date'),
-            usage_limit=request.POST.get('usage_limit')
-        )
-        messages.success(request, "Promo baru berhasil dibuat!")
-    return redirect('promotion_list')
+        return redirect("promotion_list")
+
+    if request.method == "POST":
+        try:
+            with connection.cursor() as cursor:
+                cursor.execute("SET search_path TO TikTakTuk, public")
+                cursor.execute(
+                    """
+                    INSERT INTO PROMOTION (promo_code, discount_type, discount_value, start_date, end_date, usage_limit)
+                    VALUES (%s, %s, %s, %s, %s, %s)
+                """,
+                    [
+                        request.POST.get("promo_code").upper(),
+                        request.POST.get("discount_type"),
+                        request.POST.get("discount_value"),
+                        request.POST.get("start_date"),
+                        request.POST.get("end_date"),
+                        request.POST.get("usage_limit"),
+                    ],
+                )
+            messages.success(request, "Promo baru berhasil dibuat!")
+        except Exception as e:
+            messages.error(request, f"Gagal membuat promo: {e}")
+
+    return redirect("promotion_list")
+
 
 def update_promotion(request, promo_id):
-    if SIMULASI_ROLE != 'Admin':
+    if SIMULASI_ROLE != "Admin":
         messages.error(request, "Akses ditolak!")
-        return redirect('promotion_list')
+        return redirect("promotion_list")
 
-    promo = get_object_or_404(Promotion, promotion_id=promo_id)
-    if request.method == 'POST':
-        promo.promo_code = request.POST.get('promo_code').upper()
-        promo.discount_type = request.POST.get('discount_type')
-        promo.discount_value = request.POST.get('discount_value')
-        promo.start_date = request.POST.get('start_date')
-        promo.end_date = request.POST.get('end_date')
-        promo.usage_limit = request.POST.get('usage_limit')
-        promo.save()
-        messages.success(request, "Data promo berhasil diperbarui!")
-        
-    return redirect('promotion_list')
+    if request.method == "POST":
+        try:
+            with connection.cursor() as cursor:
+                cursor.execute("SET search_path TO TikTakTuk, public")
+                cursor.execute(
+                    """
+                    UPDATE PROMOTION 
+                    SET promo_code = %s, discount_type = %s, discount_value = %s, 
+                        start_date = %s, end_date = %s, usage_limit = %s
+                    WHERE promotion_id = %s
+                """,
+                    [
+                        request.POST.get("promo_code").upper(),
+                        request.POST.get("discount_type"),
+                        request.POST.get("discount_value"),
+                        request.POST.get("start_date"),
+                        request.POST.get("end_date"),
+                        request.POST.get("usage_limit"),
+                        promo_id,
+                    ],
+                )
+            messages.success(request, "Data promo berhasil diperbarui!")
+        except Exception as e:
+            messages.error(request, f"Gagal update promo: {e}")
+
+    return redirect("promotion_list")
+
 
 def delete_promotion(request, promo_id):
-    if SIMULASI_ROLE != 'Admin':
+    if SIMULASI_ROLE != "Admin":
         messages.error(request, "Akses ditolak!")
-        return redirect('promotion_list')
+        return redirect("promotion_list")
 
-    promo = get_object_or_404(Promotion, promotion_id=promo_id)
-    if request.method == 'POST':
-        promo.delete()
+    if request.method == "POST":
+        with connection.cursor() as cursor:
+            cursor.execute("SET search_path TO TikTakTuk, public")
+            cursor.execute("DELETE FROM PROMOTION WHERE promotion_id = %s", [promo_id])
         messages.success(request, "Data promo berhasil dihapus!")
-        
-    return redirect('promotion_list')
+
+    return redirect("promotion_list")
