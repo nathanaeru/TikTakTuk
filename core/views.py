@@ -3,7 +3,7 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib import messages
 from django.db.models import Count, Sum, Min
 from django.utils import timezone
-from django.db import IntegrityError
+from django.db import IntegrityError, DatabaseError
 from django.db.models.functions import Lower
 from datetime import datetime
 
@@ -537,18 +537,22 @@ def create_venue(request):
             )
             return redirect("venue_list")
 
-        Venue.objects.create(
-            venue_id=uuid.uuid4(),
-            venue_name=name,
-            address=address,
-            city=city,
-            capacity=capacity,
-            jenis_seating=jenis_seating,
-        )
+        try:
+            Venue.objects.create(
+                venue_id=uuid.uuid4(),
+                venue_name=name,
+                address=address,
+                city=city,
+                capacity=capacity,
+                jenis_seating=jenis_seating,
+            )
 
-        messages.success(request, "Venue berhasil ditambahkan.")
+            messages.success(request, "Venue berhasil ditambahkan.")
 
-    return redirect("venue_list")
+        except DatabaseError as e:
+            messages.error(request, clean_db_error(e))
+
+        return redirect("venue_list")
 
 
 def update_venue(request, venue_id):
@@ -585,11 +589,14 @@ def update_venue(request, venue_id):
         venue.city = city
         venue.capacity = capacity
         venue.jenis_seating = jenis_seating
-        venue.save()
+        try:
+            venue.save()
+            messages.success(request, "Venue berhasil diperbarui.")
 
-        messages.success(request, "Venue berhasil diperbarui.")
+        except DatabaseError as e:
+            messages.error(request, clean_db_error(e))
 
-    return redirect("venue_list")
+        return redirect("venue_list")
 
 
 def delete_venue(request, venue_id):
@@ -612,8 +619,12 @@ def delete_venue(request, venue_id):
         )
         return redirect("venue_list")
 
-    venue.delete()
-    messages.success(request, "Venue berhasil dihapus.")
+    try:
+        venue.delete()
+        messages.success(request, "Venue berhasil dihapus.")
+
+    except DatabaseError as e:
+        messages.error(request, clean_db_error(e))
     return redirect("venue_list")
 
 def format_event(e):
@@ -799,3 +810,6 @@ def delete_seat(request, seat_id):
         messages.success(request, "Kursi berhasil dihapus.")
 
     return redirect("seat_management")
+
+def clean_db_error(e):
+    return str(e).split("CONTEXT:")[0].strip()
