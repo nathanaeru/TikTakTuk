@@ -25,7 +25,9 @@
 
     <div class="bg-dark-card border border-dark-border rounded-xl overflow-hidden">
       <div class="p-4 border-b border-dark-border flex justify-between items-center bg-dark-bg/50">
-        <input type="text" placeholder="Cari nama atau genre..." class="bg-dark-bg border border-dark-border rounded-lg px-4 py-2 text-sm text-gray-200 focus:border-primary focus:outline-none w-full max-w-md" />
+        <form method="GET" action="{% url 'artist_list' %}" class="w-full max-w-md">
+          <input type="text" name="q" value="{{ search_query|default:'' }}" placeholder="Cari nama atau genre..." class="bg-dark-bg border border-dark-border rounded-lg px-4 py-2 text-sm text-gray-200 focus:border-primary focus:outline-none w-full" />
+        </form>
       </div>
 
       <div class="overflow-x-auto">

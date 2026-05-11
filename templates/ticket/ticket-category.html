@@ -29,7 +29,9 @@
 
     <div class="bg-dark-card border border-dark-border rounded-xl overflow-hidden">
       <div class="p-4 border-b border-dark-border flex gap-4 bg-dark-bg/50">
-        <input type="text" placeholder="Cari kategori..." class="flex-1 bg-dark-bg border border-dark-border rounded-lg px-4 py-2 text-sm text-gray-200 focus:border-primary focus:outline-none" />
+        <form method="GET" action="{% url 'ticket_category_list' %}" class="flex-1 w-full">
+          <input type="text" name="q" value="{{ search_query|default:'' }}" placeholder="Cari kategori atau acara..." class="w-full bg-dark-bg border border-dark-border rounded-lg px-4 py-2 text-sm text-gray-200 focus:border-primary focus:outline-none" />
+        </form>
       </div>
 
       <div class="overflow-x-auto">

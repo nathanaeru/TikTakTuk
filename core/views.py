@@ -31,16 +31,38 @@ def artist_list_view(request):
         return redirect("auth:login")
 
     role = request.session.get("role", "guest")
+    search_query = request.GET.get("q", "").strip()  # Ambil parameter 'q'
 
     with connection.cursor() as cursor:
         cursor.execute("SET search_path TO TikTakTuk, public")
-        cursor.execute("SELECT artist_id, name, genre FROM ARTIST ORDER BY name ASC")
+
+        if search_query:
+            # Menggunakan ILIKE untuk pencarian case-insensitive pada name atau genre
+            search_param = f"%{search_query}%"
+            cursor.execute(
+                """
+                SELECT artist_id, name, genre 
+                FROM ARTIST 
+                WHERE name ILIKE %s OR genre ILIKE %s
+                ORDER BY name ASC
+            """,
+                [search_param, search_param],
+            )
+        else:
+            cursor.execute(
+                "SELECT artist_id, name, genre FROM ARTIST ORDER BY name ASC"
+            )
+
         artists = [
             {"artist_id": str(row[0]), "name": row[1], "genre": row[2]}
             for row in cursor.fetchall()
         ]
 
-    context = {"artists": artists, "role": role}
+    context = {
+        "artists": artists,
+        "role": role,
+        "search_query": search_query,  # Kirim kembali ke template untuk mempertahankan input
+    }
     return render(request, "artist/artist.html", context)
 
 
@@ -113,17 +135,27 @@ def ticket_category_list_view(request):
     # RBAC Read: Guest (belum login) dan semua role bisa melihat
     role = request.session.get("role", "guest")
     user_id = request.session.get("user_id")
+    search_query = request.GET.get("q", "").strip()
 
     with connection.cursor() as cursor:
         cursor.execute("SET search_path TO TikTakTuk, public")
 
-        # Ambil data kategori tiket beserta nama event-nya
-        cursor.execute("""
+        # Base query
+        base_sql = """
             SELECT tc.category_id, tc.category_name, tc.quota, tc.price, tc.tevent_id, e.event_title
             FROM TICKET_CATEGORY tc
             JOIN EVENT e ON tc.tevent_id = e.event_id
-            ORDER BY e.event_datetime DESC, tc.price DESC
-        """)
+        """
+
+        if search_query:
+            search_param = f"%{search_query}%"
+            base_sql += " WHERE tc.category_name ILIKE %s OR e.event_title ILIKE %s"
+            base_sql += " ORDER BY e.event_datetime DESC, tc.price DESC"
+            cursor.execute(base_sql, [search_param, search_param])
+        else:
+            base_sql += " ORDER BY e.event_datetime DESC, tc.price DESC"
+            cursor.execute(base_sql)
+
         categories = [
             {
                 "category_id": str(row[0]),
@@ -140,7 +172,6 @@ def ticket_category_list_view(request):
         events = []
         if role in ["administrator", "organizer"]:
             if role == "organizer" and user_id:
-                # Organizer hanya boleh assign kategori tiket ke event miliknya sendiri
                 cursor.execute(
                     "SELECT organizer_id FROM ORGANIZER WHERE user_id = %s", [user_id]
                 )
@@ -155,14 +186,18 @@ def ticket_category_list_view(request):
                         for r in cursor.fetchall()
                     ]
             else:
-                # Admin bebas assign ke event mana saja
                 cursor.execute("SELECT event_id, event_title FROM EVENT")
                 events = [
                     {"event_id": str(r[0]), "event_title": r[1]}
                     for r in cursor.fetchall()
                 ]
 
-    context = {"categories": categories, "events": events, "role": role}
+    context = {
+        "categories": categories,
+        "events": events,
+        "role": role,
+        "search_query": search_query,
+    }
     return render(request, "ticket/ticket-category.html", context)
 
 
