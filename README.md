@@ -9,6 +9,7 @@
 
 ## Deployment Link
 
+[https://web-production-cac588.up.railway.app/](https://web-production-cac588.up.railway.app/)
 
 ## Cara Setup Proyek
 
