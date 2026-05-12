@@ -126,8 +126,17 @@ USE_I18N = True
 USE_TZ = True
 
 
-# Static files (CSS, JavaScript, Images)
-# https://docs.djangoproject.com/en/6.0/howto/static-files/
+# --- Static Files (CSS, JavaScript, Images) ---
+STATIC_URL = "/static/"
 
-STATIC_URL = "static/"
-STATICFILES_DIRS = [BASE_DIR / "static"]
+# Tempat Django mencari file statis tambahan saat development
+STATICFILES_DIRS = [
+    os.path.join(BASE_DIR, "static"),
+]
+
+# Tempat Django mengumpulkan semua file statis untuk production (PythonAnywhere)
+STATIC_ROOT = os.path.join(BASE_DIR, "staticfiles")
+
+# --- Media Files (User Uploads) ---
+MEDIA_URL = "/media/"
+MEDIA_ROOT = os.path.join(BASE_DIR, "media")

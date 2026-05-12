@@ -7,6 +7,10 @@
 - Nathanael Leander Herdanatra - 2406421320
 - Bryan Mitch - 2306165742
 
+## Deployment Link
+
+[https://howagain.pythonanywhere.com](https://howagain.pythonanywhere.com)
+
 ## Cara Setup Proyek
 
 Requirement: Python versi 3.12+
