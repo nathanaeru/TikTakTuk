@@ -6,16 +6,16 @@ CREATE SCHEMA TikTakTuk;
 
 SET SEARCH_PATH TO TikTakTuk;
 
-CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+-- CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
 CREATE TABLE USER_ACCOUNT (
-user_id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+user_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
 username VARCHAR(100) UNIQUE NOT NULL,
 password VARCHAR(255) NOT NULL
 );
 
 CREATE TABLE ROLE(
-role_id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+role_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
 role_name VARCHAR(50) UNIQUE NOT NULL
 );
 
@@ -30,7 +30,7 @@ ON DELETE CASCADE ON UPDATE CASCADE
 );
 
 CREATE TABLE CUSTOMER(
-customer_id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+customer_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
 full_name VARCHAR(100) NOT NULL,
 phone_number VARCHAR(20),
 user_id UUID UNIQUE NOT NULL,
@@ -39,7 +39,7 @@ ON DELETE CASCADE ON UPDATE CASCADE
 );
 
 CREATE TABLE ORGANIZER(
-organizer_id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+organizer_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
 organizer_name VARCHAR(100) NOT NULL,
 contact_email VARCHAR(100),
 user_id UUID UNIQUE NOT NULL,
@@ -48,7 +48,7 @@ ON DELETE CASCADE ON UPDATE CASCADE
 );
 
 CREATE TABLE VENUE(
-venue_id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+venue_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
 venue_name VARCHAR(100) NOT NULL,
 capacity INTEGER NOT NULL DEFAULT 1,
 address TEXT NOT NULL,
@@ -59,7 +59,7 @@ CONSTRAINT jenis_seating_check CHECK (jenis_seating IN ('Free Seating', 'Reserve
 );
 
 CREATE TABLE SEAT(
-seat_id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+seat_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
 section VARCHAR(50) NOT NULL,
 seat_number VARCHAR(10) NOT NULL,
 row_number VARCHAR(10) NOT NULL,
@@ -69,7 +69,7 @@ ON DELETE CASCADE ON UPDATE CASCADE
 );
 
 CREATE TABLE EVENT(
-event_id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+event_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
 event_datetime TIMESTAMP NOT NULL,
 event_title VARCHAR(200) NOT NULL,
 venue_id UUID NOT NULL,
@@ -81,7 +81,7 @@ ON DELETE RESTRICT ON UPDATE CASCADE
 );
 
 CREATE TABLE ARTIST(
-artist_id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+artist_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
 name VARCHAR(100) NOT NULL,
 genre VARCHAR(100)
 );
@@ -98,7 +98,7 @@ ON DELETE RESTRICT ON UPDATE CASCADE
 );
 
 CREATE TABLE TICKET_CATEGORY(
-category_id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+category_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
 category_name VARCHAR(50) NOT NULL,
 quota INTEGER NOT NULL DEFAULT 1,
 price NUMERIC(12,2) NOT NULL DEFAULT 0,
@@ -110,7 +110,7 @@ CONSTRAINT price_check CHECK(price >=0)
 );
 
 CREATE TABLE "ORDER"(
-order_id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+order_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
 order_date TIMESTAMP NOT NULL,
 payment_status VARCHAR(20) NOT NULL,
 total_amount NUMERIC(12,2) NOT NULL DEFAULT 0,
@@ -121,7 +121,7 @@ CONSTRAINT totalamount_check CHECK(total_amount >= 0)
 );
 
 CREATE TABLE TICKET(
-ticket_id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+ticket_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
 ticket_code VARCHAR(100) UNIQUE NOT NULL,
 tcategory_id UUID NOT NULL,
 torder_id UUID NOT NULL,
@@ -142,7 +142,7 @@ ON DELETE CASCADE ON UPDATE CASCADE
 );
 
 CREATE TABLE PROMOTION(
-promotion_id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+promotion_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
 promo_code VARCHAR(50) UNIQUE NOT NULL,
 discount_type VARCHAR(20) NOT NULL DEFAULT 'NOMINAL',
 discount_value NUMERIC(12,2) NOT NULL DEFAULT 1,
@@ -155,7 +155,7 @@ CONSTRAINT usagelimit_check CHECK(usage_limit > 0)
 );
 
 CREATE TABLE ORDER_PROMOTION(
-order_promotion_id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+order_promotion_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
 promotion_id UUID NOT NULL,
 order_id UUID NOT NULL,
 FOREIGN KEY (promotion_id) REFERENCES PROMOTION(promotion_id)
