@@ -9,7 +9,6 @@
 
 ## Deployment Link
 
-[https://howagain.pythonanywhere.com](https://howagain.pythonanywhere.com)
 
 ## Cara Setup Proyek
 
