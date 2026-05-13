@@ -7,10 +7,10 @@ BEGIN
 
     -- Mencegah username dengan karakter spesial 
     IF NEW.username !~ '^[a-zA-Z0-9]+$' THEN
-        RAISE EXCEPTION 'Username "%" hanya boleh mengandung huruf dan angka tanpa simbol atau spasi.', NEW.username;
+        RAISE EXCEPTION 'Username "%" hanya boleh mengandung huruf dan angka.', NEW.username;
     END IF;
 
-    -- Pengecekan username unik (case-insensitive) 
+    -- Pengecekan username unik (case-insensitive)
     IF EXISTS (
         SELECT 1 FROM TikTakTuk.USER_ACCOUNT 
         WHERE LOWER(username) = LOWER(NEW.username) 
