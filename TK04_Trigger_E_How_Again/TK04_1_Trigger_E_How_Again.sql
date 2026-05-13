@@ -1,18 +1,18 @@
 CREATE OR REPLACE FUNCTION check_username_func() 
 RETURNS TRIGGER AS $$
 BEGIN
-    -- Mencegah username dengan karakter spesial 
+    -- Mencegah username dengan karakter spesial
     IF NEW.username !~ '^[a-zA-Z0-9]+$' THEN
-        RAISE EXCEPTION 'Username "%" hanya boleh mengandung huruf dan angka tanpa simbol atau spasi.', NEW.username;
+        RAISE EXCEPTION 'Username "%" hanya boleh mengandung huruf dan angka.', NEW.username;
     END IF;
 
-    -- Pengecekan username unik (case-insensitive) 
+    -- Pengecekan username unik (case-insensitive)
     IF EXISTS (
         SELECT 1 FROM TikTakTuk.USER_ACCOUNT 
         WHERE LOWER(username) = LOWER(NEW.username) 
-        AND user_id != COALESCE(NEW.user_id, '00000000-0000-0000-0000-000000000000')
+        AND user_id IS DISTINCT FROM NEW.user_id
     ) THEN
-        RAISE EXCEPTION 'Username "%" sudah terdaftar, gunakan username lain.', NEW.username;
+        RAISE EXCEPTION 'Username "%" sudah terdaftar.', NEW.username;
     END IF;
 
     RETURN NEW;
