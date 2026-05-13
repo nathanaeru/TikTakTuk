@@ -1,24 +1,21 @@
 CREATE OR REPLACE FUNCTION check_venue_func() 
 RETURNS TRIGGER AS $$
-DECLARE
-    existing_id UUID;
 BEGIN
     IF TG_OP = 'INSERT' OR TG_OP = 'UPDATE' THEN
-        -- Mencegah duplikasi nama Venue di kota yang sama 
-        SELECT venue_id INTO existing_id FROM TikTakTuk.VENUE
-        WHERE LOWER(venue_name) = LOWER(NEW.venue_name) 
-        AND LOWER(city) = LOWER(NEW.city) 
-        AND venue_id != COALESCE(NEW.venue_id, '00000000-0000-0000-0000-000000000000');
-
-        IF existing_id IS NOT NULL THEN
-            RAISE EXCEPTION 'Venue "%" di kota "%" sudah terdaftar dengan ID %.', NEW.venue_name, NEW.city, existing_id;
+        -- Cari apakah ada venue lain di kota yang sama dengan nama yang sama
+        IF EXISTS (
+            SELECT 1 FROM TikTakTuk.VENUE
+            WHERE LOWER(venue_name) = LOWER(NEW.venue_name) 
+            AND LOWER(city) = LOWER(NEW.city) 
+            AND venue_id IS DISTINCT FROM NEW.venue_id -- Null-safe comparison
+        ) THEN
+            RAISE EXCEPTION 'Venue "%" di kota "%" sudah ada.', NEW.venue_name, NEW.city;
         END IF;
         RETURN NEW;
         
     ELSIF TG_OP = 'DELETE' THEN
-        -- Mencegah penghapusan Venue jika memiliki Event aktif 
         IF EXISTS (SELECT 1 FROM TikTakTuk.EVENT WHERE venue_id = OLD.venue_id) THEN
-            RAISE EXCEPTION 'Venue "%" masih memiliki event aktif sehingga tidak dapat dihapus.', OLD.venue_name;
+            RAISE EXCEPTION 'Venue "%" tidak bisa dihapus karena masih ada event.', OLD.venue_name;
         END IF;
         RETURN OLD;
     END IF;
