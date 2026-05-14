@@ -46,6 +46,7 @@ urlpatterns = [
     path("admin-event/", views.admin_event_list, name="admin_event_list"),
     path("", views.home_view, name="home"),
     # Manajemen Seat
+    path("seats/", views.seat_management, name="seat_management_public"),
     path("dashboard/seat/", views.seat_management, name="seat_management"),
     path("dashboard/seat/create/", views.create_seat, name="create_seat"),
     path(
