@@ -2,9 +2,9 @@
   <a href="{% url 'dashboard' %}" class="hover:text-white">Dashboard</a>
   <a href="{% url 'dashboard_page' page='events' %}" class="hover:text-white">Event Saya</a>
   <a href="{% url 'dashboard_page' page='venues' %}" class="hover:text-white">Manajemen Venue</a>
-  <a href="{% url 'seat_management' %}" class="hover:text-white">Manajemen Kursi</a>
+  <a href="{% url 'seat_management' user_id=user_id %}" class="hover:text-white">Manajemen Kursi</a>
   <a href="{% url 'ticket_category_list' %}" class="hover:text-white">Kategori Tiket</a>
-  <a href="{% url 'ticket_list' %}" class="hover:text-white">Manajemen Tiket</a>
+  <a href="{% url 'ticket_list' user_id=user_id %}" class="hover:text-white">Manajemen Tiket</a>
   <a href="{% url 'dashboard_page' page='orders' %}" class="hover:text-white">Semua Order</a>
 </div>
 
