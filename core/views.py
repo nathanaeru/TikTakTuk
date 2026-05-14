@@ -523,8 +523,6 @@ def ticket_list(request):
             }
             for c in categories_qs
         ]
-
-        # PERBAIKAN: Gunakan 'row_number' dan 'seat_id'
         seats_qs = Seat.objects.order_by("row_number", "seat_number")
         seats_json = [
             {
@@ -709,7 +707,7 @@ def seat_management(request, user_id=None):
         "seat_update_base_url": seat_update_base_url,
         "seat_delete_base_url": seat_delete_base_url,
         "venues_data": json.dumps(venues_json),
-        "user_id": current_user_id,
+        "user_id": str(current_user_id) if current_user_id else "",
         "user_name": user_display_name,
         "role": role_display,
         "title": "Seat Inventory",
@@ -717,46 +715,57 @@ def seat_management(request, user_id=None):
 
     return render(request, "dashboard/seat.html", context)
 
-
-def create_seat(request):
+def create_seat(request, user_id):
     if request.method == "POST":
-        venue_id = request.POST.get("venue")
-        section = request.POST.get("section")
+        v_id = request.POST.get("venue")
+        sec = request.POST.get("section")
         row = request.POST.get("row")
-        seat_num = request.POST.get("seat_number")
+        s_num = request.POST.get("seat_number")
+
+        if not s_num or not s_num.isdigit() or int(s_num) < 1:
+            messages.error(request, f"No. kursi '{s_num}' tidak valid!")
+            return redirect("seat_management", user_id=user_id)
 
         try:
-            # PERBAIKAN: row_number=row
-            Seat.objects.create(
-                venue_id=venue_id, section=section, row_number=row, seat_number=seat_num
-            )
-            messages.success(request, "Kursi baru berhasil muncul di tabel!")
+            with connection.cursor() as cursor:
+                cursor.execute("SET search_path TO tiktaktuk, public")
+                cursor.execute("""
+                    INSERT INTO SEAT (venue_id, section, row_number, seat_number)
+                    VALUES (%s, %s, %s, %s)
+                """, [v_id, sec, row, s_num])
+            messages.success(request, "Kursi berhasil ditambahkan!")
         except IntegrityError:
-            messages.error(
-                request, "Gagal! Kombinasi kursi di venue tersebut sudah ada."
-            )
+            messages.error(request, "Gagal! Kombinasi kursi sudah ada di venue ini.")
+        except Exception as e:
+            messages.error(request, f"Error: {e}")
 
-    return redirect("seat_management")
+    return redirect("seat_management", user_id=user_id)
 
-
-def update_seat(request, seat_id):
+def update_seat(request, user_id, seat_id):
     if request.method == "POST":
-        venue_id = request.POST.get("venue")
-        section = request.POST.get("section")
+        v_id = request.POST.get("venue")
+        sec = request.POST.get("section")
         row = request.POST.get("row")
-        seat_num = request.POST.get("seat_number")
+        s_num = request.POST.get("seat_number")
+
+        if not s_num or not s_num.isdigit() or int(s_num) < 1:
+            messages.error(request, f"No. kursi '{s_num}' tidak valid!")
+            return redirect("seat_management", user_id=user_id)
 
         try:
-            # PERBAIKAN: filter menggunakan seat_id, update ke row_number
-            Seat.objects.filter(seat_id=seat_id).update(
-                venue_id=venue_id, section=section, row_number=row, seat_number=seat_num
-            )
-            messages.success(request, "Perubahan diterapkan pada tabel!")
+            with connection.cursor() as cursor:
+                cursor.execute("SET search_path TO tiktaktuk, public")
+                cursor.execute("""
+                    UPDATE SEAT SET venue_id=%s, section=%s, row_number=%s, seat_number=%s
+                    WHERE seat_id=%s
+                """, [v_id, sec, row, s_num, seat_id])
+            messages.success(request, "Perubahan berhasil disimpan!")
         except IntegrityError:
             messages.error(request, "Gagal update! Data mungkin duplikat.")
+        except Exception as e:
+            messages.error(request, f"Error: {e}")
 
-    return redirect("seat_management")
-
+    return redirect("seat_management", user_id=user_id)
 
 def delete_seat(request, user_id, seat_id):
     try:
@@ -1166,19 +1175,6 @@ def update_event(request, event_id):
             messages.error(request, f"Gagal memperbarui event: {e}")
 
     return redirect("my_event_list" if role == "organizer" else "admin_event_list")
-
-def delete_seat(request, seat_id):
-    # PERBAIKAN: filter menggunakan seat_id
-    if HasRelationship.objects.filter(seat_id=seat_id).exists():
-        messages.error(
-            request,
-            "Kursi ini sudah di-assign ke tiket dan tidak dapat dihapus. Hapus atau ubah tiket terlebih dahulu.",
-        )
-    else:
-        Seat.objects.filter(seat_id=seat_id).delete()
-        messages.success(request, "Kursi berhasil dihapus.")
-
-    return redirect("seat_management")
 
 
 User = get_user_model()

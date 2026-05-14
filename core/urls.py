@@ -42,6 +42,7 @@ urlpatterns = [
         views.dashboard_pengguna,
         name="dashboard_page",
     ),
+    path("seat/", views.seat_management, name="seat_management"),
     path("ticket/", views.ticket_list, name="ticket_list_no_id"),
     path("venue/", views.venue_list, name="venue_list"),
     path("event/", views.event_list, name="event_list"),
