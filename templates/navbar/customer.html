@@ -1,6 +1,6 @@
 <div class="hidden md:flex gap-6 text-sm font-medium text-gray-400">
   <a href="{% url 'dashboard' %}" class="hover:text-white">Dashboard</a>
-  <a href="{% url 'ticket_list' %}" class="hover:text-white">Tiket Saya</a>
+ <a href="{% url 'ticket_list' user_id=user_id %}" class="hover:text-white">Tiket Saya</a>
   <a href="{% url 'dashboard_page' page='orders' %}" class="hover:text-white">Pesanan</a>
   <a href="{% url 'artist_list' %}" class="hover:text-white">Cari Event</a>
   <a href="{% url 'dashboard_page' page='promo' %}" class="hover:text-white">Promosi</a>

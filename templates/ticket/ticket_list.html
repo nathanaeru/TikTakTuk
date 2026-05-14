@@ -54,7 +54,7 @@
                 </svg>
               </div>
               <div class="text-right">
-                <span class="bg-emerald-500/20 text-emerald-400 text-[9px] px-2 py-0.5 rounded-full font-bold uppercase mb-1 inline-block">VALID</span>
+                <span class="{% if t.10 == 'TERPAKAI' %}bg-orange-500/20 text-orange-400{% elif t.10 == 'VOID' %}bg-red-500/20 text-red-400{% else %}bg-emerald-500/20 text-emerald-400{% endif %} text-[9px] px-2 py-0.5 rounded-full font-bold uppercase mb-1 inline-block">{{ t.10 }}</span>
                 <span class="text-[10px] font-bold text-slate-500 uppercase block tracking-widest">KODE TIKET</span>
                 <span class="text-xs font-black text-blue-400 uppercase tracking-tighter">{{ t.1 }}</span>
               </div>
@@ -125,7 +125,7 @@
           </button>
         </div>
 
-        <form method="POST" action="{% url 'create_ticket' %}" id="ticketForm" class="space-y-6">
+        <form method="POST" action="{% url 'create_ticket' user_id=user_id %}" id="ticketForm" class="space-y-6">
           {% csrf_token %}
           <div>
             <label class="block text-[10px] font-bold text-slate-500 uppercase mb-3 ml-2 tracking-widest">Pilih Order</label>
@@ -171,9 +171,9 @@
           <div class="mb-4">
             <label class="text-xs text-slate-500 uppercase font-bold ml-2">Status</label>
             <select name="status" id="update_status" class="w-full bg-slate-800 border-none text-white rounded-2xl p-4 mt-2">
-              <option value="Valid">Valid</option>
-              <option value="Terpakai">Terpakai</option>
-              <option value="Void">Void</option>
+              <option value="VALID">Valid</option>
+              <option value="TERPAKAI">Terpakai</option>
+              <option value="VOID">Void</option>
             </select>
           </div>
 
@@ -210,7 +210,7 @@
     </div>
   {% endif %}
 
-  <script>
+<script>
     const ordersData = {{ orders_data|safe }};
     const categoriesData = {{ categories_data|safe }};
     const seatsData = {{ seats_data|safe }};
@@ -221,7 +221,6 @@
     const seatSelect = document.getElementById('id_seat');
 
     if (orderSelect) {
-        // Isi dropdown Order
         ordersData.forEach(o => {
             const opt = document.createElement('option');
             opt.value = o.id;
@@ -230,59 +229,54 @@
             orderSelect.appendChild(opt);
         });
 
-        // 1. Saat Order dipilih -> Filter Kategori
         orderSelect.addEventListener('change', function() {
             const eventId = this.options[this.selectedIndex].getAttribute('data-event');
             categorySelect.innerHTML = '<option value="" selected disabled>— Pilih Kategori —</option>';
             categorySelect.disabled = false;
-            
+
             categoriesData.filter(cat => cat.event_id === eventId).forEach(cat => {
                 const opt = document.createElement('option');
                 opt.value = cat.id;
                 opt.textContent = cat.display;
-                // Simpan info kursi di atribut data
-                opt.setAttribute('data-has-seat', cat.has_seat); 
-                
-                if (cat.used >= cat.quota) { opt.disabled = true; opt.textContent += " (PENUH)"; }
+                opt.setAttribute('data-has-seat', cat.has_seat);
+                if (cat.used >= cat.quota) {
+                    opt.disabled = true;
+                    opt.textContent += " (PENUH)";
+                }
                 categorySelect.appendChild(opt);
             });
 
-            // Sembunyikan dulu block kursi sampai kategori dipilih
             seatBlock.classList.add('hidden');
         });
 
-        // 2. SAAT KATEGORI DIPILIH -> Cek butuh kursi atau nggak
         categorySelect.addEventListener('change', function() {
             const selectedOption = this.options[this.selectedIndex];
             const hasSeat = selectedOption.getAttribute('data-has-seat') === 'true';
 
             if (hasSeat) {
-                // KONDISI: Ada reserved seating
                 seatBlock.classList.remove('hidden');
                 seatSelect.required = true;
-                
-                // Isi data kursi jika belum ada
                 seatSelect.innerHTML = '<option value="">Pilih Kursi...</option>';
                 seatsData.forEach(s => {
                     const opt = document.createElement('option');
-                    opt.value = s.id; 
-                    opt.textContent = s.display; 
+                    opt.value = s.id;
+                    opt.textContent = s.display;
                     seatSelect.appendChild(opt);
                 });
             } else {
-                // KONDISI: Tidak ada reserved seating (misal: Festival)
                 seatBlock.classList.add('hidden');
                 seatSelect.required = false;
-                seatSelect.value = ""; 
+                seatSelect.value = "";
             }
         });
     }
+    
 
     function openModal() {
         const modal = document.getElementById('createTicketModal');
         if (modal) {
             modal.classList.remove('hidden');
-            document.body.style.overflow = 'hidden'; // Biar background ga bisa di-scroll
+            document.body.style.overflow = 'hidden';
         }
     }
 
@@ -290,7 +284,7 @@
         const modal = document.getElementById('createTicketModal');
         if (modal) {
             modal.classList.add('hidden');
-            document.body.style.overflow = 'auto'; // Balikin scroll
+            document.body.style.overflow = 'auto';
         }
     }
 
@@ -302,37 +296,43 @@
         }
     }
 
+    function getUserIdFromPath() {
+        const pathParts = window.location.pathname.split('/').filter(p => p);
+        const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+        return pathParts.find(p => uuidRegex.test(p)) || null;
+    }
+
+
     function openUpdateModal(id, kode, status, currentSeatId) {
         const modal = document.getElementById('updateTicketModal');
         const form = document.getElementById('updateForm');
-        
-        // Set Action URL sesuai ID tiket
-        form.action = `/ticket/update/${id}/`;
-        
+        const pathParts = window.location.pathname.split('/');
+        const userId = pathParts[2];
+
+        form.action = `/dashboard/${userId}/ticket/update/${id}/`;
+
         document.getElementById('update_kode').value = kode;
         document.getElementById('update_status').value = status;
-        
-        // Pre-fill kursi
+
         const seatSelect = document.getElementById('update_seat');
         seatSelect.innerHTML = '<option value="">Tanpa Kursi</option>';
         seatsData.forEach(s => {
             const opt = document.createElement('option');
             opt.value = s.id;
             opt.textContent = s.display;
-            if(s.id === currentSeatId) opt.selected = true;
+            if (s.id === currentSeatId) opt.selected = true;
             seatSelect.appendChild(opt);
-    });
+        });
         modal.classList.remove('hidden');
     }
 
     function confirmDelete(id) {
         const modal = document.getElementById('deleteTicketModal');
         const deleteBtn = document.getElementById('confirmDeleteButton');
-        
-        // Set link tujuan hapus sesuai ID tiket
-        deleteBtn.href = `/ticket/delete/${id}/`;
-        
-        // Munculkan modal
+        const pathParts = window.location.pathname.split('/');
+        const userId = pathParts[2];
+
+        deleteBtn.href = `/dashboard/${userId}/ticket/delete/${id}/`;
         modal.classList.remove('hidden');
     }
 

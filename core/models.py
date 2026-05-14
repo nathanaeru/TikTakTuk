@@ -119,6 +119,7 @@ class Ticket(models.Model):
         TicketCategory, models.RESTRICT, db_column="tcategory_id"
     )
     torder = models.ForeignKey(Order, models.RESTRICT, db_column="torder_id")
+    status = models.CharField(max_length=20, default='VALID')  # TAMBAH INI
 
     class Meta:
         managed = False

@@ -235,7 +235,6 @@ def create_ticket_category(request):
 
     return redirect("ticket_category_list")
 
-
 def update_ticket_category(request, category_id):
     # RBAC Update: Administrator & Organizer
     role = request.session.get("role")
@@ -458,8 +457,8 @@ def dashboard_pengguna(request, page="main"):
     return render(request, f"dashboard/{role_display}.html", context)
 
 
-def ticket_list(request):
-    user_id = request.session.get("user_id")
+def ticket_list(request, user_id=None):
+    user_id = user_id or request.session.get("user_id")
     role = get_role(user_id)
     user_display_name = "Guest"
 
@@ -475,66 +474,91 @@ def ticket_list(request):
             user_display_name = usr.username if usr else "Admin"
 
     tickets_qs = Ticket.objects.select_related(
-        "torder__customer", "tcategory__tevent__venue"
+        "torder__customer",
+        "tcategory__tevent__venue"
     ).order_by("-tcategory__tevent__event_datetime", "ticket_code")
 
     if role == "customer":
         tickets_qs = tickets_qs.filter(torder__customer__user_id=user_id)
 
     tickets = []
-    for t in tickets_qs:
-        tickets.append(
-            (
-                str(t.ticket_id),
-                t.ticket_code,
-                t.torder.customer.full_name,
-                t.tcategory.tevent.event_title,
-                t.tcategory.category_name,
-                t.tcategory.price,
-                t.tcategory.tevent.venue.venue_name,
-                t.tcategory.tevent.venue.city,
-                t.tcategory.tevent.event_datetime,
-                str(t.torder.order_id),
-            )
-        )
-
-    total_tiket = len(tickets)
-    valid_count = total_tiket
+    valid_count = 0
     terpakai_count = 0
 
-    orders_json, categories_json, seats_json = [], [], []
+    for t in tickets_qs:
+        status_db = (getattr(t, 'status', 'VALID') or 'VALID').strip().upper()
+
+        if status_db == "TERPAKAI":
+            terpakai_count += 1
+            status_display = "TERPAKAI"
+        elif status_db == "VOID":
+            status_display = "VOID"
+        else:
+            valid_count += 1
+            status_display = "VALID"
+
+        tickets.append((
+            str(t.ticket_id),
+            t.ticket_code,
+            t.torder.customer.full_name,
+            t.tcategory.tevent.event_title,
+            t.tcategory.category_name,
+            t.tcategory.price,
+            t.tcategory.tevent.venue.venue_name,
+            t.tcategory.tevent.venue.city,
+            t.tcategory.tevent.event_datetime,
+            str(t.torder.order_id),
+            status_display,
+        ))
+
+    orders_json = []
+    categories_json = []
+    seats_json = []
 
     if role in ["administrator", "organizer"]:
-        orders_qs = Order.objects.filter(payment_status="LUNAS").select_related(
-            "customer"
-        )
+        orders_qs = Order.objects.filter(payment_status="LUNAS").select_related("customer")
+        orders_json = []
+        for o in orders_qs:
+            first_ticket = Ticket.objects.filter(torder=o).select_related("tcategory__tevent").first()
+            event_id = str(first_ticket.tcategory.tevent_id) if first_ticket else None
+            event_title = first_ticket.tcategory.tevent.event_title if first_ticket else "Unknown Event"
+            
+            orders_json.append({
+                "id": str(o.order_id),
+                "display": f"{str(o.order_id)[:8]} — {o.customer.full_name} — {event_title}",
+                "event_id": event_id,
+            })
 
-        categories_qs = TicketCategory.objects.annotate(used=Count("ticket")).all()
+        categories_qs = TicketCategory.objects.annotate(used=Count("ticket")).select_related("tevent")
         categories_json = [
             {
                 "id": str(c.category_id),
-                "name": c.category_name,
-                "price": float(c.price),
+                "display": f"{c.category_name} — Rp {int(c.price):,} — ({c.used}/{c.quota})",
+                "event_id": str(c.tevent_id),
                 "quota": c.quota,
                 "used": c.used,
-                "event_id": str(c.tevent_id),
-                "has_seat": "General" not in c.category_name,
-                "display": f"{c.category_name} — Rp {c.price:,.0f} ({c.used}/{c.quota})",
+                "has_seat": c.tevent.venue.jenis_seating == "Reserved Seating" if hasattr(c.tevent, 'venue') else False,
             }
             for c in categories_qs
         ]
-        seats_qs = Seat.objects.order_by("row_number", "seat_number")
+
+        # Kursi yang belum di-assign ke tiket lain
+        seats_qs = Seat.objects.exclude(
+            seat_id__in=HasRelationship.objects.values_list("seat_id", flat=True)
+        ).order_by("section", "row_number", "seat_number")
+
         seats_json = [
             {
                 "id": str(s.seat_id),
-                "display": f"Baris {s.row_number} — Kursi {s.seat_number}",
+                "display": f"{s.section} — Baris {s.row_number}, No. {s.seat_number}",
+                "venue_id": str(s.venue_id),
             }
             for s in seats_qs
         ]
 
     context = {
         "tickets": tickets,
-        "total_tiket": total_tiket,
+        "total_tiket": len(tickets),
         "valid_count": valid_count,
         "terpakai_count": terpakai_count,
         "orders_data": json.dumps(orders_json),
@@ -543,17 +567,17 @@ def ticket_list(request):
         "user_id": user_id,
         "user_name": user_display_name,
         "role": role,
-        "title": (
-            "Manajemen Tiket"
-            if role in ["administrator", "organizer"]
-            else "Tiket Saya"
-        ),
+        "title": "Manajemen Tiket" if role in ["administrator", "organizer"] else "Tiket Saya",
     }
     return render(request, "ticket/ticket_list.html", context)
 
-
-def create_ticket(request):
+def create_ticket(request, user_id):
     if request.method == "POST":
+        role = get_current_role(request)
+        if role not in ['admin', 'organizer']:
+            messages.error(request, "Akses Ditolak! Hanya Admin atau Organizer yang dapat membuat tiket.")
+            return redirect("ticket_list", user_id=user_id)
+
         order_id = request.POST.get("order")
         category_id = request.POST.get("category")
         seat_id = request.POST.get("seat")
@@ -562,45 +586,97 @@ def create_ticket(request):
         new_ticket_id = uuid.uuid4()
 
         try:
-            ticket = Ticket.objects.create(
-                ticket_id=new_ticket_id,
-                ticket_code=ticket_code,
-                torder_id=order_id,
-                tcategory_id=category_id,
-            )
+            with connection.cursor() as cursor:
+                cursor.execute("SET search_path TO tiktaktuk, public")
 
-            if seat_id:
-                HasRelationship.objects.create(
-                    ticket_id=str(new_ticket_id), seat_id=seat_id
-                )
+                # Cek apakah kategori masih ada kuota
+                cursor.execute("""
+                    SELECT quota, (SELECT COUNT(*) FROM TICKET WHERE tcategory_id = %s) as used
+                    FROM TICKET_CATEGORY WHERE category_id = %s
+                """, [category_id, category_id])
+                row = cursor.fetchone()
+                if row and row[1] >= row[0]:
+                    messages.error(request, "Kuota kategori tiket sudah penuh!")
+                    return redirect("ticket_list", user_id=user_id)
+
+                cursor.execute("""
+                    INSERT INTO TICKET (ticket_id, ticket_code, torder_id, tcategory_id)
+                    VALUES (%s, %s, %s, %s)
+                """, [str(new_ticket_id), ticket_code, order_id, category_id])
+
+                # Assign kursi kalau dipilih
+                if seat_id and seat_id != "tanpa_kursi":
+                    cursor.execute("""
+                        INSERT INTO HAS_RELATIONSHIP (ticket_id, seat_id)
+                        VALUES (%s, %s)
+                    """, [str(new_ticket_id), seat_id])
 
             messages.success(request, f"Tiket {ticket_code} berhasil dibuat!")
         except Exception as e:
             messages.error(request, f"Gagal membuat tiket: {e}")
 
-    return redirect("ticket_list")
+    return redirect("ticket_list", user_id=user_id)
 
-
-def update_ticket(request, ticket_id):
+def update_ticket(request, user_id, ticket_id):
     if request.method == "POST":
-        status = request.POST.get("status")
+        raw_role = get_current_role(request)
+        role = str(raw_role).strip().lower() if raw_role else ""
+        
+        # FIX: organizer juga boleh update
+        if role not in ['administrator', 'admin', 'organizer']:
+            messages.error(request, "Akses Ditolak!")
+            return redirect("ticket_list", user_id=user_id)
+
+        new_status = request.POST.get("status", "VALID").upper()
         seat_id = request.POST.get("seat")
 
-        Ticket.objects.filter(ticket_id=ticket_id).update(
-            status=status, seat_id=seat_id if seat_id else None
-        )
+        try:
+            with connection.cursor() as cursor:
+                cursor.execute("SET search_path TO tiktaktuk, public")
+                cursor.execute("""
+                    UPDATE TICKET 
+                    SET status = %s 
+                    WHERE ticket_id = %s
+                """, [new_status, ticket_id])
 
-    return redirect(request.META.get("HTTP_REFERER", "/"))
+                cursor.execute("DELETE FROM HAS_RELATIONSHIP WHERE ticket_id = %s", [ticket_id])
 
+                if seat_id and seat_id != "tanpa_kursi":
+                    cursor.execute("""
+                        INSERT INTO HAS_RELATIONSHIP (ticket_id, seat_id)
+                        VALUES (%s, %s)
+                    """, [ticket_id, seat_id])
 
-def delete_ticket(request, ticket_id):
-    with connection.cursor() as cursor:
-        cursor.execute("SET search_path TO tiktaktuk, public")
+            messages.success(request, "Data tiket berhasil diperbarui!")
+            
+        except Exception as e:
+            error_msg = str(e)
+            if 'column "status" does not exist' in error_msg:
+                messages.error(request, "Gagal: Kolom 'status' belum ada. Jalankan ALTER TABLE.")
+            else:
+                messages.error(request, f"Gagal: {e}")
 
-        cursor.execute("DELETE FROM TICKET WHERE ticket_id = %s", [ticket_id])
+    return redirect("ticket_list", user_id=user_id)
 
-    return redirect(request.META.get("HTTP_REFERER", "/"))
+def delete_ticket(request, user_id, ticket_id):
+    role = get_current_role(request)
+    if role != 'admin':
+        messages.error(request, "Akses Ditolak! Hanya Admin yang dapat menghapus tiket.")
+        return redirect("ticket_list", user_id=user_id)
 
+    try:
+        with connection.cursor() as cursor:
+            cursor.execute("SET search_path TO tiktaktuk, public")
+
+            # Hapus relasi dulu baru hapus tiket
+            cursor.execute("DELETE FROM HAS_RELATIONSHIP WHERE ticket_id = %s", [ticket_id])
+            cursor.execute("DELETE FROM TICKET WHERE ticket_id = %s", [ticket_id])
+
+        messages.success(request, "Tiket berhasil dihapus.")
+    except Exception as e:
+        messages.error(request, f"Gagal menghapus tiket: {e}")
+
+    return redirect("ticket_list", user_id=user_id)
 
 def seat_management(request, user_id=None):
     """
@@ -798,13 +874,11 @@ def normalize_role(raw_role):
         return raw_role
     return "customer"
 
-
 def get_current_role(request):
     user_id = request.session.get("user_id")
     if user_id:
         return normalize_role(request.session.get("role") or get_role(user_id))
     return normalize_role(request.GET.get("role", "customer"))
-
 
 def venue_list(request):
     role = get_current_role(request)
@@ -877,7 +951,6 @@ def create_venue(request):
 
         return redirect("venue_list")
 
-
 def update_venue(request, venue_id):
     role = get_current_role(request)
     if role not in ["admin", "organizer"]:
@@ -920,7 +993,6 @@ def update_venue(request, venue_id):
             messages.error(request, clean_db_error(e))
 
         return redirect("venue_list")
-
 
 def delete_venue(request, venue_id):
     role = get_current_role(request)
@@ -973,7 +1045,6 @@ def format_event(e):
         "organizer_id": str(e.organizer_id),
     }
 
-
 def event_list(request):
     events_qs = (
         Event.objects
@@ -1005,7 +1076,6 @@ def event_list(request):
         "artists": Artist.objects.all(),
     })
 
-
 def admin_event_list(request):
     events_qs = (
         Event.objects
@@ -1023,7 +1093,6 @@ def admin_event_list(request):
         "organizers": Organizer.objects.all(),
         "artists": Artist.objects.all(),
     })
-
 
 def my_event_list(request):
     user_id = request.session.get("user_id")
@@ -1065,7 +1134,6 @@ def save_event_artists(event, artist_ids):
                 event=event,
                 artist_id=artist_id,
             )
-
 
 def save_event_categories(event, names, prices, quotas):
     TicketCategory.objects.filter(tevent=event).delete()
@@ -1176,7 +1244,6 @@ def update_event(request, event_id):
 
     return redirect("my_event_list" if role == "organizer" else "admin_event_list")
 
-
 User = get_user_model()
 
 # ==========================================
@@ -1223,7 +1290,6 @@ def checkout_view(request):
                 # Simulasi mengambil customer_id pertama dari database
                 cursor.execute("SELECT customer_id FROM CUSTOMER LIMIT 1")
                 cust_row = cursor.fetchone()
-
                 if cust_row:
                     # Insert Order menggunakan raw query
                     cursor.execute(
@@ -1245,7 +1311,6 @@ def checkout_view(request):
         return redirect("daftar_order")
 
     return render(request, "order/checkout.html")
-
 
 def daftar_order_view(request):
     try:
@@ -1305,7 +1370,6 @@ def daftar_order_view(request):
     }
     return render(request, "order/order_list.html", context)
 
-
 def update_order_status(request, order_id):
     if SIMULASI_ROLE != "Admin":
         messages.error(request, "Akses ditolak!")
@@ -1323,7 +1387,6 @@ def update_order_status(request, order_id):
 
     return redirect("daftar_order")
 
-
 def delete_order(request, order_id):
     if SIMULASI_ROLE != "Admin":
         messages.error(request, "Akses ditolak!")
@@ -1336,7 +1399,6 @@ def delete_order(request, order_id):
         messages.success(request, f"Data Order {order_id} berhasil dihapus!")
 
     return redirect("daftar_order")
-
 
 def promotion_list_view(request):
     with connection.cursor() as cursor:
@@ -1363,7 +1425,6 @@ def promotion_list_view(request):
         "user_role": SIMULASI_ROLE,
     }
     return render(request, "promotion/promotion_list.html", context)
-
 
 def create_promotion(request):
     if SIMULASI_ROLE != "Admin":
@@ -1393,7 +1454,6 @@ def create_promotion(request):
             messages.error(request, f"Gagal membuat promo: {e}")
 
     return redirect("promotion_list")
-
 
 def update_promotion(request, promo_id):
     if SIMULASI_ROLE != "Admin":
@@ -1426,7 +1486,6 @@ def update_promotion(request, promo_id):
             messages.error(request, f"Gagal update promo: {e}")
 
     return redirect("promotion_list")
-
 
 def delete_promotion(request, promo_id):
     if SIMULASI_ROLE != "Admin":

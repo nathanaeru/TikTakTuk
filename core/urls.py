@@ -20,11 +20,7 @@ urlpatterns = [
         name="delete_seat",
     ),
     path("dashboard/<uuid:user_id>/ticket/", views.ticket_list, name="ticket_list"),
-    path(
-        "dashboard/<uuid:user_id>/ticket/create/",
-        views.create_ticket,
-        name="create_ticket",
-    ),
+    path("dashboard/<uuid:user_id>/ticket/create/", views.create_ticket, name="create_ticket"),
     path(
         "dashboard/<uuid:user_id>/ticket/update/<str:ticket_id>/",
         views.update_ticket,
@@ -60,7 +56,6 @@ urlpatterns = [
     ),
     # Manajemen Tiket
     path("dashboard/ticket/", views.ticket_list, name="ticket_list"),
-    path("dashboard/ticket/create/", views.create_ticket, name="create_ticket"),
     path(
         "dashboard/ticket/update/<str:ticket_id>/",
         views.update_ticket,

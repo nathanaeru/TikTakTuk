@@ -4,7 +4,7 @@
   <a href="{% url 'artist_list' %}" class="hover:text-white transition-colors">Manajemen Artis</a>
   <a href="{% url 'seat_management' %}" class="hover:text-white">Manajemen Kursi</a>
   <a href="{% url 'ticket_category_list' %}" class="hover:text-white">Kategori Tiket</a>
-  <a href="{% url 'ticket_list' %}" class="hover:text-white">Manajemen Tiket</a>
+  <a href="{% url 'ticket_list' user_id=user_id %}" class="hover:text-white">Manajemen Tiket</a>
   <a href="{% url 'dashboard_page' page='orders' %}" class="hover:text-white">Semua Order</a>
 </div>
 
