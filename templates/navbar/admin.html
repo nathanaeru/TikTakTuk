@@ -1,6 +1,6 @@
 <div class="hidden md:flex gap-6 text-sm font-medium text-gray-400">
   <a href="{% url 'dashboard' %}" class="hover:text-white">Dashboard</a>
-  <a href="{% url 'dashboard_page' page='venues' %}" class="hover:text-white">Manajemen Venue</a>
+  <a href="{% url 'venue_list' %}?role=admin" class="hover:text-white">Manajemen Venue</a>
   <a href="{% url 'artist_list' %}" class="hover:text-white transition-colors">Manajemen Artis</a>
   <a href="{% url 'seat_management' %}" class="hover:text-white">Manajemen Kursi</a>
   <a href="{% url 'ticket_category_list' %}" class="hover:text-white">Kategori Tiket</a>
