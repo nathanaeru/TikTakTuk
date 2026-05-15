@@ -131,12 +131,12 @@
               Edit
             </button>
 
-            <form method="POST" action="{% url 'delete_venue' venue.id %}" class="inline">
-              {% csrf_token %}
-              <button onclick="return confirm('Yakin ingin menghapus venue ini?')" class="bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded text-xs">
-                Hapus
-              </button>
-            </form>
+            <button
+              type="button"
+              onclick='openDeleteVenueModal("{% url "delete_venue" venue.id %}")'
+              class="bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded text-xs">
+              Hapus
+            </button>
           </td>
           {% endif %}
         </tr>
@@ -204,6 +204,34 @@
   </div>
 </div>
 
+<div id="deleteVenueModal" class="hidden fixed inset-0 bg-black/60 z-50 flex items-center justify-center">
+  <div class="bg-dark-card border border-dark-border text-white rounded-2xl w-full max-w-md p-6 shadow-xl">
+    <div class="flex justify-between items-start mb-4">
+      <h2 class="text-xl font-bold text-red-400">Hapus Venue</h2>
+      <button type="button" onclick="closeDeleteVenueModal()" class="text-gray-400 hover:text-white text-xl">
+        ×
+      </button>
+    </div>
+
+    <p class="text-gray-300 mb-6">
+      Apakah Anda yakin ingin menghapus venue ini? Tindakan ini tidak dapat dibatalkan.
+    </p>
+
+    <form id="deleteVenueForm" method="POST" class="flex justify-end gap-3">
+      {% csrf_token %}
+      <button type="button" onclick="closeDeleteVenueModal()"
+        class="px-4 py-2 rounded-lg border border-dark-border text-gray-300 hover:bg-slate-700">
+        Batal
+      </button>
+
+      <button type="submit"
+        class="px-4 py-2 rounded-lg bg-red-600 hover:bg-red-700 text-white">
+        Hapus
+      </button>
+    </form>
+  </div>
+</div>
+
 <script>
   function openVenueModal(title, buttonText, actionUrl) {
     document.getElementById("venueModalTitle").innerText = title;
@@ -235,6 +263,15 @@
 
   function closeVenueModal() {
     document.getElementById("venueModal").classList.add("hidden");
+  }
+
+  function openDeleteVenueModal(actionUrl) {
+    document.getElementById("deleteVenueForm").action = actionUrl;
+    document.getElementById("deleteVenueModal").classList.remove("hidden");
+  }
+
+  function closeDeleteVenueModal() {
+    document.getElementById("deleteVenueModal").classList.add("hidden");
   }
 </script>
 {% endblock %}
