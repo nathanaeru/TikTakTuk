@@ -51,6 +51,24 @@ def artist_list_view(request):
     with connection.cursor() as cursor:
         cursor.execute("SET search_path TO TikTakTuk, public")
 
+        aggregate_where_sql = ""
+        aggregate_params = []
+        if search_query:
+            search_param = f"%{search_query}%"
+            aggregate_where_sql = " WHERE a.name ILIKE %s OR a.genre ILIKE %s"
+            aggregate_params = [search_param, search_param]
+
+        cursor.execute(
+            """
+            SELECT COALESCE(COUNT(DISTINCT a.genre), 0) AS total_genres,
+                   COALESCE(COUNT(DISTINCT ea.event_id), 0) AS total_events
+            FROM ARTIST a
+            LEFT JOIN event_artist ea ON ea.artist_id = a.artist_id
+            """ + aggregate_where_sql,
+            aggregate_params,
+        )
+        aggregate_row = cursor.fetchone() or (0, 0)
+
         if search_query:
             # Menggunakan ILIKE untuk pencarian case-insensitive pada name atau genre
             search_param = f"%{search_query}%"
@@ -77,6 +95,8 @@ def artist_list_view(request):
         "artists": artists,
         "role": role,
         "search_query": search_query,  # Kirim kembali ke template untuk mempertahankan input
+        "total_genres": aggregate_row[0],
+        "total_events": aggregate_row[1],
     }
     return render(request, "artist/artist.html", context)
 
@@ -155,21 +175,36 @@ def ticket_category_list_view(request):
     with connection.cursor() as cursor:
         cursor.execute("SET search_path TO TikTakTuk, public")
 
-        # Base query
-        base_sql = """
-            SELECT tc.category_id, tc.category_name, tc.quota, tc.price, tc.tevent_id, e.event_title
+        base_from_sql = """
             FROM TICKET_CATEGORY tc
             JOIN EVENT e ON tc.tevent_id = e.event_id
         """
 
+        where_sql = ""
+        params = []
         if search_query:
             search_param = f"%{search_query}%"
-            base_sql += " WHERE tc.category_name ILIKE %s OR e.event_title ILIKE %s"
-            base_sql += " ORDER BY e.event_datetime DESC, tc.price DESC"
-            cursor.execute(base_sql, [search_param, search_param])
-        else:
-            base_sql += " ORDER BY e.event_datetime DESC, tc.price DESC"
-            cursor.execute(base_sql)
+            where_sql = " WHERE tc.category_name ILIKE %s OR e.event_title ILIKE %s"
+            params = [search_param, search_param]
+
+        cursor.execute(
+            """
+            SELECT COALESCE(SUM(tc.quota), 0) AS total_quota,
+                   COALESCE(MAX(tc.price), 0) AS highest_price
+            """ + base_from_sql + where_sql,
+            params,
+        )
+        aggregate_row = cursor.fetchone() or (0, 0)
+
+        cursor.execute(
+            """
+            SELECT tc.category_id, tc.category_name, tc.quota, tc.price, tc.tevent_id, e.event_title
+            """
+            + base_from_sql
+            + where_sql
+            + " ORDER BY e.event_title DESC, tc.category_name DESC",
+            params,
+        )
 
         categories = [
             {
@@ -212,6 +247,8 @@ def ticket_category_list_view(request):
         "events": events,
         "role": role,
         "search_query": search_query,
+        "total_quota": aggregate_row[0],
+        "highest_price": aggregate_row[1],
     }
     return render(request, "ticket/ticket-category.html", context)
 

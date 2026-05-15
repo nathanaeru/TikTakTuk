@@ -16,14 +16,18 @@
       {% endif %}
     </div>
 
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
       <div class="bg-dark-card border border-dark-border rounded-xl p-6">
         <p class="text-sm text-gray-400 mb-1">TOTAL KATEGORI</p>
         <h3 class="text-3xl font-bold text-white">{{ categories|length }}</h3>
       </div>
       <div class="bg-dark-card border border-dark-border rounded-xl p-6">
-        <p class="text-sm text-gray-400 mb-1">STATUS</p>
-        <h3 class="text-3xl font-bold text-green-400">Aktif</h3>
+        <p class="text-sm text-gray-400 mb-1">TOTAL KUOTA</p>
+        <h3 class="text-3xl font-bold text-white">{{ total_quota }}</h3>
+      </div>
+      <div class="bg-dark-card border border-dark-border rounded-xl p-6">
+        <p class="text-sm text-gray-400 mb-1">HARGA TERTINGGI</p>
+        <h3 class="text-3xl font-bold text-white">Rp {{ highest_price|floatformat:0 }}</h3>
       </div>
     </div>
 
