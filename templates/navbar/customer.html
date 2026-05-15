@@ -5,7 +5,7 @@
   {% else %}
     <a href="{% url 'ticket_list_no_id' %}" class="hover:text-white">Tiket Saya</a>
   {% endif %}
-  <a href="{% url 'dashboard_page' page='orders' %}" class="hover:text-white">Pesanan</a>
+  <a href="{% url 'daftar_order' %}" class="hover:text-white">Pesanan</a>
   <a href="{% url 'event_list' %}" class="hover:text-white">Cari Event</a>
   <a href="{% url 'dashboard_page' page='promo' %}" class="hover:text-white">Promosi</a>
   <a href="{% url 'venue_list' %}?role=customer" class="hover:text-white">Venue</a>
