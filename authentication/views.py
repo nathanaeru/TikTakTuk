@@ -6,7 +6,14 @@ from django.db import connection
 
 def clean_db_error(e):
     """Ambil hanya baris pesan utama dari exception psycopg2 / trigger DB."""
-    return str(e).split("CONTEXT:")[0].strip()
+    raw_msg = str(e)
+    first_line = raw_msg.split("\n")[0].strip()
+    if first_line.upper().startswith("ERROR:"):
+        clean_msg = first_line[6:].strip()
+    else:
+        clean_msg = first_line
+    final_msg = f"ERROR: {clean_msg}"
+    return final_msg
 
 
 def choose_role_view(request):
@@ -60,8 +67,7 @@ def register_customer_view(request):
             return redirect("auth:login")
 
         except Exception as e:
-            # Error message akan mengambil pesan RAISE EXCEPTION dari Trigger di database
-            messages.error(request, f"Gagal mendaftar: {str(e)}")
+            messages.error(request, clean_db_error(e))
             return redirect("auth:register_customer")
 
     return render(request, "auth/register_customer.html")
@@ -112,7 +118,7 @@ def register_organizer_view(request):
             return redirect("auth:login")
 
         except Exception as e:
-            messages.error(request, f"Gagal mendaftar: {str(e)}")
+            messages.error(request, clean_db_error(e))
             return redirect("auth:register_organizer")
 
     return render(request, "auth/register_organizer.html")
@@ -158,7 +164,7 @@ def register_admin_view(request):
             return redirect("auth:login")
 
         except Exception as e:
-            messages.error(request, f"Gagal mendaftar: {str(e)}")
+            messages.error(request, clean_db_error(e))
             return redirect("auth:register_admin")
 
     return render(request, "auth/register_admin.html")
@@ -215,7 +221,7 @@ def login_view(request):
                     messages.error(request, "Username atau password salah!")
 
         except Exception as e:
-            messages.error(request, f"Terjadi kesalahan: {e}")
+            messages.error(request, clean_db_error(e))
 
     return render(request, "auth/login.html")
 
@@ -275,7 +281,7 @@ def update_profile_view(request):
         messages.success(request, "Profil Anda berhasil diperbarui!")
 
     except Exception as e:
-        messages.error(request, f"Gagal memperbarui profil: {clean_db_error(e)}")
+        messages.error(request, clean_db_error(e))
 
     return redirect("dashboard_page", page="profile")
 
@@ -335,7 +341,6 @@ def update_password_view(request):
         messages.success(request, "Password berhasil diperbarui!")
 
     except Exception as e:
-        # Tangkap pesan dari trigger DB (misal panjang password)
         messages.error(request, clean_db_error(e))
 
     return redirect("dashboard_page", page="profile")
@@ -379,6 +384,6 @@ def change_password_view(request):
                     messages.error(request, "Password lama yang Anda masukkan salah.")
 
         except Exception as e:
-            messages.error(request, f"Terjadi kesalahan teknis: {str(e)}")
+            messages.error(request, clean_db_error(e))
 
     return redirect("dashboard_page", page="profile")

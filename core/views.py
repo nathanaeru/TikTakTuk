@@ -9,6 +9,19 @@ from django.utils import timezone
 from django.db.models import Q, Sum
 from .models import Venue, Event, Artist, EventArtist, TicketCategory, Organizer
 
+
+def clean_db_error(e):
+    """Ambil hanya baris pesan utama dari exception psycopg2 / trigger DB."""
+    raw_msg = str(e)
+    first_line = raw_msg.split("\n")[0].strip()
+    if first_line.upper().startswith("ERROR:"):
+        clean_msg = first_line[6:].strip()
+    else:
+        clean_msg = first_line
+    final_msg = f"ERROR: {clean_msg}"
+    return final_msg
+
+
 def home_view(request):
     return redirect("dashboard")
 
@@ -85,7 +98,7 @@ def create_artist(request):
                 )
             messages.success(request, "Artis berhasil ditambahkan!")
         except Exception as e:
-            messages.error(request, f"Gagal menambahkan artis: {e}")
+            messages.error(request, clean_db_error(e))
 
     return redirect("artist_list")
 
@@ -108,7 +121,7 @@ def update_artist(request, artist_id):
                 )
             messages.success(request, "Data artis berhasil diperbarui!")
         except Exception as e:
-            messages.error(request, f"Gagal memperbarui artis: {e}")
+            messages.error(request, clean_db_error(e))
 
     return redirect("artist_list")
 
@@ -128,7 +141,7 @@ def delete_artist(request, artist_id):
                 cursor.execute("DELETE FROM ARTIST WHERE artist_id = %s", [artist_id])
             messages.success(request, "Artis berhasil dihapus!")
         except Exception as e:
-            messages.error(request, f"Gagal menghapus artis: {e}")
+            messages.error(request, clean_db_error(e))
 
     return redirect("artist_list")
 
@@ -228,7 +241,7 @@ def create_ticket_category(request):
                 )
             messages.success(request, "Kategori tiket berhasil ditambahkan!")
         except Exception as e:
-            messages.error(request, f"Gagal menambahkan kategori tiket: {e}")
+            messages.error(request, clean_db_error(e))
 
     return redirect("ticket_category_list")
 
@@ -259,7 +272,7 @@ def update_ticket_category(request, category_id):
                 )
             messages.success(request, "Kategori tiket berhasil diperbarui!")
         except Exception as e:
-            messages.error(request, f"Gagal memperbarui kategori tiket: {e}")
+            messages.error(request, clean_db_error(e))
 
     return redirect("ticket_category_list")
 
@@ -280,7 +293,7 @@ def delete_ticket_category(request, category_id):
                 )
             messages.success(request, "Kategori tiket berhasil dihapus!")
         except Exception as e:
-            messages.error(request, f"Gagal menghapus kategori tiket: {e}")
+            messages.error(request, clean_db_error(e))
 
     return redirect("ticket_category_list")
 
@@ -568,15 +581,13 @@ def ticket_list(request, user_id=None):
 
     with connection.cursor() as cursor:
         cursor.execute("SET search_path TO TikTakTuk, public")
-        cursor.execute(
-            """
+        cursor.execute("""
             SELECT EXISTS (
                 SELECT 1 FROM information_schema.columns
                 WHERE table_name = 'ticket' AND column_name = 'status'
                   AND table_schema IN ('tiktaktuk', 'TikTakTuk', 'public')
             )
-            """
-        )
+            """)
         has_status = cursor.fetchone()[0]
 
     status_select = (
@@ -628,19 +639,21 @@ def ticket_list(request, user_id=None):
             valid_count += 1
             status_display = "VALID"
 
-        tickets.append((
-            str(row["ticket_id"]),
-            row["ticket_code"],
-            row["customer_name"],
-            row["event_title"],
-            row["category_name"],
-            row["price"],
-            row["venue_name"],
-            row["city"],
-            row["event_datetime"],
-            str(row["torder_id"]),
-            status_display,
-        ))
+        tickets.append(
+            (
+                str(row["ticket_id"]),
+                row["ticket_code"],
+                row["customer_name"],
+                row["event_title"],
+                row["category_name"],
+                row["price"],
+                row["venue_name"],
+                row["city"],
+                row["event_datetime"],
+                str(row["torder_id"]),
+                status_display,
+            )
+        )
 
     orders_json = []
     categories_json = []
@@ -721,21 +734,24 @@ def ticket_list(request, user_id=None):
             ]
 
     context = {
-        "tickets":        tickets,
-        "total_tiket":    len(tickets),
-        "valid_count":    valid_count,
+        "tickets": tickets,
+        "total_tiket": len(tickets),
+        "valid_count": valid_count,
         "terpakai_count": terpakai_count,
-        "orders_data":    json.dumps(orders_json),
-        "categories_data":json.dumps(categories_json),
-        "seats_data":     json.dumps(seats_json),
-        "user_id":        user_id,
-        "user_name":      user_display_name,
-        "role":           role,
+        "orders_data": json.dumps(orders_json),
+        "categories_data": json.dumps(categories_json),
+        "seats_data": json.dumps(seats_json),
+        "user_id": user_id,
+        "user_name": user_display_name,
+        "role": role,
         "title": (
-            "Manajemen Tiket" if role in ["administrator", "organizer"] else "Tiket Saya"
+            "Manajemen Tiket"
+            if role in ["administrator", "organizer"]
+            else "Tiket Saya"
         ),
     }
     return render(request, "ticket/ticket_list.html", context)
+
 
 def create_ticket(request, user_id):
     """
@@ -756,9 +772,9 @@ def create_ticket(request, user_id):
         )
         return redirect("ticket_list", user_id=user_id)
 
-    order_id    = request.POST.get("order")
+    order_id = request.POST.get("order")
     category_id = request.POST.get("category")
-    seat_id     = request.POST.get("seat")
+    seat_id = request.POST.get("seat")
 
     try:
         with connection.cursor() as cursor:
@@ -797,7 +813,7 @@ def create_ticket(request, user_id):
                     return redirect("ticket_list", user_id=user_id)
 
             # 3. Insert — trigger DB akan cek kuota, exception ditangkap di bawah
-            ticket_code   = f"TTK-{uuid.uuid4().hex[:8].upper()}"
+            ticket_code = f"TTK-{uuid.uuid4().hex[:8].upper()}"
             new_ticket_id = uuid.uuid4()
 
             cursor.execute(
@@ -841,7 +857,7 @@ def update_ticket(request, user_id, ticket_id):
         return redirect("ticket_list", user_id=user_id)
 
     new_status = request.POST.get("status", "VALID").upper()
-    seat_id    = request.POST.get("seat")
+    seat_id = request.POST.get("seat")
 
     try:
         with connection.cursor() as cursor:
@@ -867,15 +883,13 @@ def update_ticket(request, user_id, ticket_id):
                     return redirect("ticket_list", user_id=user_id)
 
             # Update status jika kolom ada
-            cursor.execute(
-                """
+            cursor.execute("""
                 SELECT EXISTS (
                     SELECT 1 FROM information_schema.columns
                     WHERE table_name = 'ticket' AND column_name = 'status'
                       AND table_schema IN ('tiktaktuk', 'TikTakTuk', 'public')
                 )
-                """
-            )
+                """)
             has_status = cursor.fetchone()[0]
 
             if has_status:
@@ -900,6 +914,7 @@ def update_ticket(request, user_id, ticket_id):
         messages.error(request, f"ERROR: {clean_db_error(e)}")
 
     return redirect("ticket_list", user_id=user_id)
+
 
 def delete_ticket(request, user_id, ticket_id):
     """Hapus tiket — hanya Admin."""
@@ -981,11 +996,11 @@ def seat_management(request, user_id=None):
             {
                 "seat_id": str(r[0]),
                 "section": r[1],
-                "row":     r[2],
-                "number":  r[3],
-                "venue":   r[4],
-                "status":  r[5],
-                "venue_id":str(r[6]),
+                "row": r[2],
+                "number": r[3],
+                "venue": r[4],
+                "status": r[5],
+                "venue_id": str(r[6]),
             }
             for r in cursor.fetchall()
         ]
@@ -1002,20 +1017,21 @@ def seat_management(request, user_id=None):
             venues_json = [{"id": str(v[0]), "nama": v[1]} for v in cursor.fetchall()]
 
     context = {
-        "seats":               seat_list,
-        "total_kursi":         total_seats,
-        "total_terisi":        total_taken,
-        "total_tersedia":      total_seats - total_taken,
-        "seat_create_url":     f"{seat_base_path}/create/",
-        "seat_update_base_url":f"{seat_base_path}/update/",
-        "seat_delete_base_url":f"{seat_base_path}/delete/",
-        "venues_data":         json.dumps(venues_json),
-        "user_id":             str(current_user_id) if current_user_id else "",
-        "user_name":           user_display_name,
-        "role":                role_display,
-        "title":               "Seat Inventory",
+        "seats": seat_list,
+        "total_kursi": total_seats,
+        "total_terisi": total_taken,
+        "total_tersedia": total_seats - total_taken,
+        "seat_create_url": f"{seat_base_path}/create/",
+        "seat_update_base_url": f"{seat_base_path}/update/",
+        "seat_delete_base_url": f"{seat_base_path}/delete/",
+        "venues_data": json.dumps(venues_json),
+        "user_id": str(current_user_id) if current_user_id else "",
+        "user_name": user_display_name,
+        "role": role_display,
+        "title": "Seat Inventory",
     }
     return render(request, "dashboard/seat.html", context)
+
 
 def create_seat(request, user_id):
     """
@@ -1027,9 +1043,9 @@ def create_seat(request, user_id):
     if request.method != "POST":
         return redirect("seat_management", user_id=user_id)
 
-    v_id  = request.POST.get("venue")
-    sec   = request.POST.get("section")
-    row   = request.POST.get("row")
+    v_id = request.POST.get("venue")
+    sec = request.POST.get("section")
+    row = request.POST.get("row")
     s_num = request.POST.get("seat_number")
 
     if not s_num or not s_num.isdigit() or int(s_num) < 1:
@@ -1083,6 +1099,7 @@ def create_seat(request, user_id):
 
     return redirect("seat_management", user_id=user_id)
 
+
 def update_seat(request, user_id, seat_id):
     """
     Update data kursi.
@@ -1093,9 +1110,9 @@ def update_seat(request, user_id, seat_id):
     if request.method != "POST":
         return redirect("seat_management", user_id=user_id)
 
-    v_id  = request.POST.get("venue")
-    sec   = request.POST.get("section")
-    row   = request.POST.get("row")
+    v_id = request.POST.get("venue")
+    sec = request.POST.get("section")
+    row = request.POST.get("row")
     s_num = request.POST.get("seat_number")
 
     if not s_num or not s_num.isdigit() or int(s_num) < 1:
@@ -1151,6 +1168,7 @@ def update_seat(request, user_id, seat_id):
 
     return redirect("seat_management", user_id=user_id)
 
+
 def delete_seat(request, user_id, seat_id):
     """
     Hapus kursi.
@@ -1200,8 +1218,10 @@ def delete_seat(request, user_id, seat_id):
 
     return redirect("seat_management", user_id=user_id)
 
+
 def clean_db_error(e):
     return str(e).split("CONTEXT:")[0].strip()
+
 
 def normalize_role(raw_role):
     if raw_role == "administrator":
@@ -1210,11 +1230,13 @@ def normalize_role(raw_role):
         return raw_role
     return "customer"
 
+
 def get_current_role(request):
     user_id = request.session.get("user_id")
     if user_id:
         return normalize_role(request.session.get("role") or get_role(user_id))
     return normalize_role(request.GET.get("role", "customer"))
+
 
 def venue_list(request):
     role = get_current_role(request)
@@ -1227,8 +1249,7 @@ def venue_list(request):
 
     if search:
         venues_qs = venues_qs.filter(
-            Q(venue_name__icontains=search) |
-            Q(address__icontains=search)
+            Q(venue_name__icontains=search) | Q(address__icontains=search)
         )
 
     if city:
@@ -1255,13 +1276,17 @@ def venue_list(request):
     total_capacity = venues_qs.aggregate(total=Sum("capacity"))["total"] or 0
     reserved_count = venues_qs.filter(jenis_seating="Reserved Seating").count()
 
-    return render(request, "venue/venue_list.html", {
-        "role": role,
-        "venues": venues,
-        "cities": cities,
-        "total_capacity": total_capacity,
-        "reserved_count": reserved_count,
-    })
+    return render(
+        request,
+        "venue/venue_list.html",
+        {
+            "role": role,
+            "venues": venues,
+            "cities": cities,
+            "total_capacity": total_capacity,
+            "reserved_count": reserved_count,
+        },
+    )
 
 
 def create_venue(request):
@@ -1333,10 +1358,14 @@ def update_venue(request, venue_id):
             return redirect("venue_list")
 
         try:
-            duplicate = Venue.objects.filter(
-                venue_name__iexact=name,
-                city__iexact=city,
-            ).exclude(venue_id=venue_id).first()
+            duplicate = (
+                Venue.objects.filter(
+                    venue_name__iexact=name,
+                    city__iexact=city,
+                )
+                .exclude(venue_id=venue_id)
+                .first()
+            )
 
             if duplicate:
                 messages.error(
@@ -1462,16 +1491,24 @@ def event_list(request):
         for a in Artist.objects.all().order_by("name")
     ]
 
-    return render(request, "event/event_list.html", {
-        "role": get_current_role(request),
-        "events": events,
-        "venues": venues,
-        "artists": artists,
-    })
+    return render(
+        request,
+        "event/event_list.html",
+        {
+            "role": get_current_role(request),
+            "events": events,
+            "venues": venues,
+            "artists": artists,
+        },
+    )
 
 
 def admin_event_list(request):
-    events_qs = Event.objects.select_related("venue", "organizer").all().order_by("event_datetime")
+    events_qs = (
+        Event.objects.select_related("venue", "organizer")
+        .all()
+        .order_by("event_datetime")
+    )
     events = [format_event_obj(event) for event in events_qs]
 
     venues = [
@@ -1489,13 +1526,17 @@ def admin_event_list(request):
         for a in Artist.objects.all().order_by("name")
     ]
 
-    return render(request, "event/my_event_list.html", {
-        "role": "admin",
-        "events": events,
-        "venues": venues,
-        "organizers": organizers,
-        "artists": artists,
-    })
+    return render(
+        request,
+        "event/my_event_list.html",
+        {
+            "role": "admin",
+            "events": events,
+            "venues": venues,
+            "organizers": organizers,
+            "artists": artists,
+        },
+    )
 
 
 def my_event_list(request):
@@ -1503,7 +1544,9 @@ def my_event_list(request):
     role = get_current_role(request)
 
     if role != "organizer":
-        messages.error(request, "Anda harus login sebagai organizer untuk mengakses halaman ini.")
+        messages.error(
+            request, "Anda harus login sebagai organizer untuk mengakses halaman ini."
+        )
         return redirect("event_list")
 
     organizer = Organizer.objects.filter(user_id=user_id).first()
@@ -1513,8 +1556,7 @@ def my_event_list(request):
         return redirect("event_list")
 
     events_qs = (
-        Event.objects
-        .select_related("venue", "organizer")
+        Event.objects.select_related("venue", "organizer")
         .filter(organizer=organizer)
         .order_by("event_datetime")
     )
@@ -1531,12 +1573,16 @@ def my_event_list(request):
         for a in Artist.objects.all().order_by("name")
     ]
 
-    return render(request, "event/my_event_list.html", {
-        "role": "organizer",
-        "events": events,
-        "venues": venues,
-        "artists": artists,
-    })
+    return render(
+        request,
+        "event/my_event_list.html",
+        {
+            "role": "organizer",
+            "events": events,
+            "venues": venues,
+            "artists": artists,
+        },
+    )
 
 
 def save_event_artists(event_id, artist_ids):
@@ -1576,7 +1622,9 @@ def create_event(request):
 
         if not title:
             messages.error(request, "Judul event tidak boleh kosong.")
-            return redirect("my_event_list" if role == "organizer" else "admin_event_list")
+            return redirect(
+                "my_event_list" if role == "organizer" else "admin_event_list"
+            )
 
         date = request.POST.get("date")
         time = request.POST.get("time")
@@ -1591,7 +1639,9 @@ def create_event(request):
             event_datetime = datetime.strptime(f"{date} {time}", "%Y-%m-%d %H:%M")
 
             if role == "organizer":
-                organizer = Organizer.objects.filter(user_id=request.session.get("user_id")).first()
+                organizer = Organizer.objects.filter(
+                    user_id=request.session.get("user_id")
+                ).first()
             else:
                 organizer_id = request.POST.get("organizer_id")
                 organizer = (
@@ -1602,7 +1652,9 @@ def create_event(request):
 
             if not organizer:
                 messages.error(request, "Data organizer tidak ditemukan.")
-                return redirect("event_list" if role == "organizer" else "admin_event_list")
+                return redirect(
+                    "event_list" if role == "organizer" else "admin_event_list"
+                )
 
             with transaction.atomic():
                 event = Event.objects.create(
@@ -1623,10 +1675,15 @@ def create_event(request):
 
             messages.success(request, "Event berhasil dibuat.")
 
-        except DatabaseError as e:
-            messages.error(request, clean_db_error(e))
         except Exception as e:
-            messages.error(request, f"Gagal membuat event: {e}")
+            messages.error(
+                request,
+                (
+                    clean_db_error(e)
+                    if isinstance(e, DatabaseError)
+                    else f"Gagal membuat event: {e}"
+                ),
+            )
 
     return redirect("my_event_list" if role == "organizer" else "admin_event_list")
 
@@ -1638,13 +1695,19 @@ def update_event(request, event_id):
         messages.error(request, "Anda tidak memiliki akses untuk mengubah event.")
         return redirect("event_list")
 
-    event = get_object_or_404(Event.objects.select_related("organizer"), event_id=event_id)
+    event = get_object_or_404(
+        Event.objects.select_related("organizer"), event_id=event_id
+    )
 
     if role == "organizer":
-        organizer = Organizer.objects.filter(user_id=request.session.get("user_id")).first()
+        organizer = Organizer.objects.filter(
+            user_id=request.session.get("user_id")
+        ).first()
 
         if not organizer or event.organizer_id != organizer.organizer_id:
-            messages.error(request, "Organizer hanya dapat mengubah event miliknya sendiri.")
+            messages.error(
+                request, "Organizer hanya dapat mengubah event miliknya sendiri."
+            )
             return redirect("my_event_list")
 
     if request.method == "POST":
@@ -1652,7 +1715,9 @@ def update_event(request, event_id):
 
         if not title:
             messages.error(request, "Judul event tidak boleh kosong.")
-            return redirect("my_event_list" if role == "organizer" else "admin_event_list")
+            return redirect(
+                "my_event_list" if role == "organizer" else "admin_event_list"
+            )
 
         date = request.POST.get("date")
         time = request.POST.get("time")
@@ -1685,9 +1750,17 @@ def update_event(request, event_id):
         except DatabaseError as e:
             messages.error(request, clean_db_error(e))
         except Exception as e:
-            messages.error(request, f"Gagal memperbarui event: {e}")
+            messages.error(
+                request,
+                (
+                    clean_db_error(e)
+                    if isinstance(e, DatabaseError)
+                    else f"Gagal memperbarui event: {e}"
+                ),
+            )
 
     return redirect("my_event_list" if role == "organizer" else "admin_event_list")
+
 
 def checkout_view(request):
     event_id = request.GET.get("event")
@@ -1842,7 +1915,7 @@ def checkout_view(request):
                         "Gagal save: Belum ada customer sama sekali di database.",
                     )
         except Exception as e:
-            messages.error(request, f"Terjadi kesalahan saat memproses pesanan: {e}")
+            messages.error(request, clean_db_error(e))
 
         return redirect("daftar_order")
 
@@ -2023,7 +2096,7 @@ def create_promotion(request):
                 )
             messages.success(request, "Promo baru berhasil dibuat!")
         except Exception as e:
-            messages.error(request, f"Gagal membuat promo: {e}")
+            messages.error(request, clean_db_error(e))
 
     return redirect("promotion_list")
 
@@ -2062,7 +2135,7 @@ def update_promotion(request, promo_id):
                 )
             messages.success(request, "Data promo berhasil diperbarui!")
         except Exception as e:
-            messages.error(request, f"Gagal update promo: {e}")
+            messages.error(request, clean_db_error(e))
 
     return redirect("promotion_list")
 
