@@ -595,6 +595,10 @@ def dashboard_pengguna(request, page="main"):
 
 def ticket_list(request, user_id=None):
     user_id = user_id or request.session.get("user_id")
+    
+    if not user_id:
+        return redirect("home")
+    
     role = get_role(user_id)
     user_display_name = "Guest"
 
@@ -789,7 +793,6 @@ def ticket_list(request, user_id=None):
     }
     return render(request, "ticket/ticket_list.html", context)
 
-
 def create_ticket(request, user_id):
     """
     Buat tiket baru.
@@ -876,7 +879,6 @@ def create_ticket(request, user_id):
 
     return redirect("ticket_list", user_id=user_id)
 
-
 def update_ticket(request, user_id, ticket_id):
     """
     Update status dan/atau kursi tiket.
@@ -951,7 +953,6 @@ def update_ticket(request, user_id, ticket_id):
         messages.error(request, f"ERROR: {clean_db_error(e)}")
 
     return redirect("ticket_list", user_id=user_id)
-
 
 def delete_ticket(request, user_id, ticket_id):
     """Hapus tiket — hanya Admin."""
