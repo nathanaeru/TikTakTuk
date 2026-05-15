@@ -24,10 +24,10 @@
 
     <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
       {% for event in events %}
-        <div class="bg-dark-card border border-dark-border rounded-2xl overflow-hidden">
+        <div class="bg-dark-card border border-dark-border rounded-2xl overflow-hidden shadow-lg flex flex-col h-full min-h-[460px]">
           <div class="h-40 bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-6xl">{{ event.icon }}</div>
 
-          <div class="p-5">
+          <div class="p-5 flex flex-col flex-1">
             <h2 class="text-lg font-bold text-white mb-3">{{ event.title }}</h2>
 
             <p class="text-sm text-gray-400">📅 {{ event.date }} • {{ event.time }}</p>
@@ -39,23 +39,41 @@
               {% endfor %}
             </div>
 
-            <div class="flex justify-between items-center mt-5">
-              <div class="flex flex-wrap gap-2">
+            <div class="flex items-start justify-between gap-4 mt-4">
+              
+              <div class="flex flex-wrap gap-2 max-w-[70%]">
                 {% for category in event.categories %}
-                  <span class="text-xs bg-blue-500/20 text-blue-300 px-3 py-1 rounded-full">{{ category }}</span>
+                  <span class="text-xs bg-blue-500/20 text-blue-300 px-2 py-1 rounded-full">
+                    {{ category }}
+                  </span>
                 {% endfor %}
               </div>
 
-              <span class="font-semibold text-white">Rp{{ event.price }}</span>
+              <p class="text-white font-bold whitespace-nowrap">
+                Rp{{ event.price }}
+              </p>
+
             </div>
 
-            {% if role == 'admin' or role == 'organizer' %}
-              <div class="flex gap-2 mt-5">
-                <button onclick="openEditEventModal(this)" data-action="{% url 'update_event' event.id %}" data-title="{{ event.title|escapejs }}" data-date="{{ event.date }}" data-time="{{ event.time }}" data-venue="{{ event.venue_id }}" class="w-full bg-yellow-500 hover:bg-yellow-600 text-white py-2 rounded-lg text-sm">Edit</button>
-              </div>
-            {% else %}
-              <button class="w-full mt-5 bg-primary hover:bg-primaryHover text-white py-2 rounded-lg text-sm">Beli Tiket</button>
-            {% endif %}
+              {% if role == 'admin' or role == 'organizer' %}
+                <div class="mt-auto pt-5">
+                  <button
+                    onclick="openEditEventModal(this)"
+                    data-action="{% url 'update_event' event.id %}"
+                    data-title="{{ event.title|escapejs }}"
+                    data-date="{{ event.date }}"
+                    data-time="{{ event.time }}"
+                    data-venue="{{ event.venue_id }}"
+                    data-categories='{{ event.ticket_categories_json|safe }}'
+                    class="w-full bg-yellow-500 hover:bg-yellow-600 text-white py-2 rounded-xl text-sm font-semibold transition-colors">
+                    Edit
+                  </button>
+                </div>
+              {% else %}
+                <button class="w-full mt-5 bg-primary hover:bg-primaryHover text-white py-2 rounded-lg text-sm">
+                  Beli Tiket
+                </button>
+              {% endif %}
           </div>
         </div>
       {% empty %}
@@ -181,15 +199,29 @@
       document.getElementById('eventModalTitle').innerText = 'Edit Acara'
       document.getElementById('eventSubmitBtn').innerText = 'Simpan'
       document.getElementById('eventForm').action = btn.dataset.action
+
       document.getElementById('eventTitleInput').value = btn.dataset.title || ''
       document.getElementById('eventDateInput').value = btn.dataset.date || ''
       document.getElementById('eventTimeInput').value = btn.dataset.time || ''
-    
+
       const venueSelect = document.getElementById('eventVenueInput')
       if (venueSelect) {
         venueSelect.value = btn.dataset.venue || ''
       }
-    
+
+      const container = document.getElementById('ticketCategoryContainer')
+      container.innerHTML = ''
+
+      const categories = JSON.parse(btn.dataset.categories || '[]')
+
+      if (categories.length === 0) {
+        addTicketCategory()
+      } else {
+        categories.forEach(category => {
+          addTicketCategory(category.name, category.price, category.quota)
+        })
+      }
+
       document.getElementById('eventModal').classList.remove('hidden')
     }
     
@@ -197,29 +229,32 @@
       document.getElementById('eventModal').classList.add('hidden')
     }
     
-    function addTicketCategory() {
+    function addTicketCategory(name = '', price = '', quota = '') {
       const container = document.getElementById('ticketCategoryContainer')
-    
+
       const item = document.createElement('div')
       item.className = 'bg-gray-50 border border-gray-100 rounded-xl p-3'
       item.innerHTML = `
-          <div class="flex gap-2 mb-2">
-            <input name="category_name" type="text"
-              class="flex-1 border border-gray-200 rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500"
-              placeholder="Nama kategori">
-            <button type="button" onclick="this.closest('.bg-gray-50').remove()" class="text-red-400 font-bold">⊗</button>
-          </div>
-    
-          <div class="grid grid-cols-2 gap-2">
-            <input name="category_price"  type="number"
-              class="border border-gray-200 rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500"
-              placeholder="Harga">
-            <input name="category_quota" type="number"
-              class="border border-gray-200 rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500"
-              placeholder="Kuota">
-          </div>
-        `
-    
+        <div class="flex gap-2 mb-2">
+          <input name="category_name" type="text"
+            value="${name}"
+            class="flex-1 border border-gray-200 rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500"
+            placeholder="Nama kategori">
+          <button type="button" onclick="this.closest('.bg-gray-50').remove()" class="text-red-400 font-bold">⊗</button>
+        </div>
+
+        <div class="grid grid-cols-2 gap-2">
+          <input name="category_price" type="number"
+            value="${price}"
+            class="border border-gray-200 rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500"
+            placeholder="Harga">
+          <input name="category_quota" type="number"
+            value="${quota}"
+            class="border border-gray-200 rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500"
+            placeholder="Kuota">
+        </div>
+      `
+
       container.appendChild(item)
     }
   </script>

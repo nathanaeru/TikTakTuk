@@ -1493,6 +1493,14 @@ def format_event_obj(event):
         "artists": [artist["name"] for artist in artists],
         "price": f"{min_price:,.0f}".replace(",", "."),
         "categories": [category["category_name"] for category in categories],
+        "ticket_categories_json": json.dumps([
+            {
+                "name": category["category_name"],
+                "price": float(category["price"]),
+                "quota": category["quota"],
+            }
+            for category in categories
+        ]),
         "icon": "🎵",
         "organizer_id": str(event.organizer_id),
     }
@@ -1541,6 +1549,16 @@ def event_list(request):
 
 
 def admin_event_list(request):
+    role = get_current_role(request)
+
+    if "user_id" not in request.session:
+        messages.error(request, "Silakan login terlebih dahulu.")
+        return redirect("auth:login")
+
+    if role != "admin":
+        messages.error(request, "Anda tidak memiliki akses ke halaman admin event.")
+        return redirect("event_list")
+
     events_qs = (
         Event.objects.select_related("venue", "organizer")
         .all()
