@@ -7,7 +7,7 @@
     
     <div class="mb-8">
         <h2 class="text-3xl font-bold text-white mb-2">Daftar Order</h2>
-        <p class="text-gray-400">Riwayat pembelian tiket (Mode: {{ user_role }})</p>
+        <p class="text-gray-400">Riwayat pembelian tiket (Mode: {{ role }})</p>
     </div>
     
     <!-- STATISTIK RINGKASAN -->
@@ -24,7 +24,7 @@
             <p class="text-gray-400 text-xs font-bold uppercase tracking-wider mb-2">PENDING</p>
             <h3 class="text-3xl font-bold text-yellow-400">{{ pending_count }}</h3>
         </div>
-        {% if user_role == 'Admin' or user_role == 'Organizer' %}
+        {% if role == 'admin' or role == 'organizer' %}
         <div class="bg-dark-card border border-dark-border rounded-xl p-6 shadow-lg">
             <p class="text-gray-400 text-xs font-bold uppercase tracking-wider mb-2">TOTAL REVENUE</p>
             <h3 class="text-3xl font-bold text-primary">Rp {{ total_revenue }}</h3>
@@ -37,9 +37,9 @@
         <input type="text" placeholder="Cari ID atau pelanggan..." class="flex-1 bg-dark-card border border-dark-border text-white rounded-lg px-4 py-3 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-colors placeholder-gray-500">
         <select class="bg-dark-card border border-dark-border text-white rounded-lg px-4 py-3 focus:outline-none focus:border-primary transition-colors">
             <option value="All">Semua Status</option>
-            <option value="Paid">Lunas</option>
-            <option value="Pending">Pending</option>
-            <option value="Cancelled">Dibatalkan</option>
+            <option value="LUNAS">Lunas</option>
+            <option value="PENDING">Pending</option>
+            <option value="DIBATALKAN">Dibatalkan</option>
         </select>
     </div>
 
@@ -49,13 +49,13 @@
             <thead>
                 <tr class="border-b border-dark-border text-gray-400 text-sm uppercase tracking-wider bg-dark-bg/30">
                     <th class="py-4 px-6 font-medium">ORDER ID</th>
-                    {% if user_role == 'Admin' or user_role == 'Organizer' %}
+                    {% if role == 'admin' or role == 'organizer' %}
                     <th class="py-4 px-6 font-medium">PELANGGAN</th>
                     {% endif %}
                     <th class="py-4 px-6 font-medium">TANGGAL</th>
                     <th class="py-4 px-6 font-medium">STATUS</th>
                     <th class="py-4 px-6 font-medium">TOTAL</th>
-                    {% if user_role == 'Admin' %}
+                    {% if role == 'admin' %}
                     <th class="py-4 px-6 font-medium text-center">ACTION</th>
                     {% endif %}
                 </tr>
@@ -65,30 +65,30 @@
                 <tr class="border-b border-dark-border/50 hover:bg-dark-bg/40 transition-colors">
                     <td class="py-4 px-6 font-mono text-sm">{{ order.order_id|truncatechars:13 }}</td>
                     
-                    {% if user_role == 'Admin' or user_role == 'Organizer' %}
+                    {% if role == 'admin' or role == 'organizer' %}
                     <td class="py-4 px-6 flex items-center gap-3">
                         <div class="w-8 h-8 rounded-full bg-gray-700 flex items-center justify-center text-xs font-bold text-white">
-                            {{ order.customer.username|first|upper|default:"G" }}
+                            {{ order.customer_username|first|upper|default:"G" }}
                         </div>
-                        {{ order.customer.username|default:"Guest" }}
+                        {{ order.customer_name|default:"Guest" }}
                     </td>
                     {% endif %}
                     
                     <td class="py-4 px-6 text-sm text-gray-400">{{ order.order_date|date:"Y-m-d H:i" }}</td>
                     
                     <td class="py-4 px-6">
-                        {% if order.payment_status == 'Paid' or order.payment_status == 'Lunas' %}
+                        {% if order.payment_status == 'LUNAS' %}
                             <span class="bg-green-500/20 text-green-400 px-3 py-1 rounded-full text-xs font-bold border border-green-500/30">LUNAS</span>
-                        {% elif order.payment_status == 'Pending' %}
+                        {% elif order.payment_status == 'PENDING' %}
                             <span class="bg-yellow-500/20 text-yellow-400 px-3 py-1 rounded-full text-xs font-bold border border-yellow-500/30">PENDING</span>
                         {% else %}
                             <span class="bg-red-500/20 text-red-400 px-3 py-1 rounded-full text-xs font-bold border border-red-500/30">DIBATALKAN</span>
                         {% endif %}
                     </td>
                     
-                    <td class="py-4 px-6 font-medium">Rp {{ order.total_amount }}</td>
+                    <td class="py-4 px-6 font-medium">Rp {{ order.total_amount|floatformat:0 }}</td>
                     
-                    {% if user_role == 'Admin' %}
+                    {% if role == 'admin' %}
                     <td class="py-4 px-6 text-center">
                         <button onclick="openUpdateModal('{{ order.order_id }}', '{{ order.payment_status }}')" class="text-yellow-400 hover:text-yellow-300 bg-yellow-400/10 hover:bg-yellow-400/20 p-2 rounded-lg transition-colors mr-2" title="Update Status">
                             ✏️
@@ -114,7 +114,7 @@
 <!-- ============================================== -->
 <!-- MODAL SECTION (Hanya diload jika user Admin)   -->
 <!-- ============================================== -->
-{% if user_role == 'Admin' %}
+        {% if role == 'admin' %}
     <!-- Modal Backdrop -->
     <div id="modalBackdrop" class="fixed inset-0 bg-black/70 backdrop-blur-sm z-40 hidden transition-opacity"></div>
 
@@ -127,9 +127,9 @@
             {% csrf_token %}
             <label class="block text-sm text-gray-300 mb-2">Pilih Status Pembayaran</label>
             <select name="payment_status" id="update-status-select" class="w-full bg-dark-bg border border-dark-border text-white rounded-lg px-4 py-3 mb-6 focus:outline-none focus:border-primary transition-colors">
-                <option value="Paid">Lunas</option>
-                <option value="Pending">Pending</option>
-                <option value="Cancelled">Dibatalkan</option>
+                <option value="LUNAS">Lunas</option>
+                <option value="PENDING">Pending</option>
+                <option value="DIBATALKAN">Dibatalkan</option>
             </select>
             <div class="flex justify-end gap-3">
                 <button type="button" onclick="closeModal('updateModal')" class="px-5 py-2.5 rounded-lg text-gray-300 hover:bg-dark-border transition-colors font-medium">Batal</button>
