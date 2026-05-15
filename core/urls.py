@@ -6,7 +6,7 @@ urlpatterns = [
     path("", views.home_view, name="home"),
     path(
         "dashboard/<uuid:user_id>/seat/", views.seat_management, name="seat_management"
-    ),
+    ), 
     path(
         "dashboard/<uuid:user_id>/seat/create/", views.create_seat, name="create_seat"
     ),
@@ -52,6 +52,8 @@ urlpatterns = [
     path("event/", views.event_list, name="event_list"),
     path("my-event/", views.my_event_list, name="my_event_list"),
     path("admin-event/", views.admin_event_list, name="admin_event_list"),
+    path("event/create/", views.create_event, name="create_event"),
+    path("event/update/<uuid:event_id>/", views.update_event, name="update_event"),
     path("", views.home_view, name="home"),
     # Manajemen Seat
     path("seats/", views.seat_management, name="seat_management_public"),
