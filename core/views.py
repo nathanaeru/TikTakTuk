@@ -1158,6 +1158,11 @@ def create_venue(request):
         address = request.POST.get("address", "").strip()
         city = request.POST.get("city", "").strip()
         capacity = request.POST.get("capacity")
+        capacity = int(capacity)
+
+        if capacity <= 0:
+            messages.error(request, "Capacity harus lebih dari 0.")
+            return redirect("venue_list")
         has_reserved = request.POST.get("has_reserved_seating") == "on"
 
         jenis_seating = "Reserved Seating" if has_reserved else "Free Seating"
@@ -1211,6 +1216,10 @@ def update_venue(request, venue_id):
         address = request.POST.get("address", "").strip()
         city = request.POST.get("city", "").strip()
         capacity = request.POST.get("capacity")
+        capacity = int(capacity)
+        if capacity <= 0:
+            messages.error(request, "Capacity harus lebih dari 0.")
+            return redirect("venue_list")
         has_reserved = request.POST.get("has_reserved_seating") == "on"
 
         jenis_seating = "Reserved Seating" if has_reserved else "Free Seating"
@@ -1550,6 +1559,9 @@ def create_event(request):
 
     if request.method == "POST":
         title = request.POST.get("event_title", "").strip()
+        if not title:
+            messages.error(request, "Judul event tidak boleh kosong.")
+            return redirect("my_event_list" if role == "organizer" else "admin_event_list")
         date = request.POST.get("date")
         time = request.POST.get("time")
         venue_id = request.POST.get("venue_id")
@@ -1582,13 +1594,16 @@ def create_event(request):
                             "event_list" if role == "organizer" else "admin_event_list"
                         )
 
+                    new_event_id = uuid.uuid4()
+
                     cursor.execute(
                         """
                         INSERT INTO EVENT (event_id, event_datetime, event_title, venue_id, organizer_id)
                         VALUES (%s, %s, %s, %s, %s)
+                        RETURNING event_id
                     """,
                         [
-                            uuid.uuid4(),
+                            new_event_id,
                             event_datetime,
                             title,
                             venue_id,
@@ -1596,20 +1611,15 @@ def create_event(request):
                         ],
                     )
 
-                save_event_artists(event_id if False else uuid.uuid4(), [])
+                    created_event_id = cursor.fetchone()[0]
 
-            with connection.cursor() as cursor:
-                cursor.execute("SET search_path TO TikTakTuk, public")
-                cursor.execute(
-                    "SELECT event_id FROM EVENT WHERE event_title = %s AND event_datetime = %s AND venue_id = %s ORDER BY event_id DESC LIMIT 1",
-                    [title, event_datetime, venue_id],
-                )
-                created_event = cursor.fetchone()
+                save_event_artists(created_event_id, artist_ids)
 
-            if created_event:
-                save_event_artists(created_event[0], artist_ids)
                 save_event_categories(
-                    created_event[0], category_names, category_prices, category_quotas
+                    created_event_id,
+                    category_names,
+                    category_prices,
+                    category_quotas,
                 )
 
             messages.success(request, "Event berhasil dibuat.")
@@ -1654,10 +1664,16 @@ def update_event(request, event_id):
 
     if request.method == "POST":
         title = request.POST.get("event_title", "").strip()
+        if not title:
+            messages.error(request, "Judul event tidak boleh kosong.")
+            return redirect("my_event_list" if role == "organizer" else "admin_event_list")
         date = request.POST.get("date")
         time = request.POST.get("time")
         venue_id = request.POST.get("venue_id")
-
+        event_datetime = datetime.strptime(
+            f"{date} {time}",
+            "%Y-%m-%d %H:%M"
+        )
         artist_ids = request.POST.getlist("artist_ids")
         category_names = request.POST.getlist("category_name")
         category_prices = request.POST.getlist("category_price")
@@ -1675,7 +1691,7 @@ def update_event(request, event_id):
                     """,
                         [
                             title,
-                            datetime.strptime(f"{date} {time}", "%Y-%m-%d %H:%M"),
+                            event_datetime,
                             venue_id,
                             event_id,
                         ],
