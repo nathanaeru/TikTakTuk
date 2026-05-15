@@ -51,6 +51,24 @@ def artist_list_view(request):
     with connection.cursor() as cursor:
         cursor.execute("SET search_path TO TikTakTuk, public")
 
+        aggregate_where_sql = ""
+        aggregate_params = []
+        if search_query:
+            search_param = f"%{search_query}%"
+            aggregate_where_sql = " WHERE a.name ILIKE %s OR a.genre ILIKE %s"
+            aggregate_params = [search_param, search_param]
+
+        cursor.execute(
+            """
+            SELECT COALESCE(COUNT(DISTINCT a.genre), 0) AS total_genres,
+                   COALESCE(COUNT(DISTINCT ea.event_id), 0) AS total_events
+            FROM ARTIST a
+            LEFT JOIN event_artist ea ON ea.artist_id = a.artist_id
+            """ + aggregate_where_sql,
+            aggregate_params,
+        )
+        aggregate_row = cursor.fetchone() or (0, 0)
+
         if search_query:
             # Menggunakan ILIKE untuk pencarian case-insensitive pada name atau genre
             search_param = f"%{search_query}%"
@@ -77,6 +95,8 @@ def artist_list_view(request):
         "artists": artists,
         "role": role,
         "search_query": search_query,  # Kirim kembali ke template untuk mempertahankan input
+        "total_genres": aggregate_row[0],
+        "total_events": aggregate_row[1],
     }
     return render(request, "artist/artist.html", context)
 
