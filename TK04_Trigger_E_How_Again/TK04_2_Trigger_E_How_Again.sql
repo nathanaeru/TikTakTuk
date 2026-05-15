@@ -1,15 +1,21 @@
 CREATE OR REPLACE FUNCTION TikTakTuk.check_venue_func() 
 RETURNS TRIGGER AS $$
+DECLARE
+    v_existing_id UUID; 
 BEGIN
     IF TG_OP = 'INSERT' OR TG_OP = 'UPDATE' THEN
-        IF EXISTS (
-            SELECT 1 FROM TikTakTuk.VENUE
-            WHERE LOWER(venue_name) = LOWER(NEW.venue_name) 
-            AND LOWER(city) = LOWER(NEW.city) 
-            AND venue_id IS DISTINCT FROM NEW.venue_id
-        ) THEN
-            RAISE EXCEPTION 'Venue "%" di kota "%" sudah ada.', NEW.venue_name, NEW.city;
+        SELECT venue_id INTO v_existing_id 
+        FROM TikTakTuk.VENUE
+        WHERE LOWER(venue_name) = LOWER(NEW.venue_name) 
+        AND LOWER(city) = LOWER(NEW.city) 
+        AND venue_id IS DISTINCT FROM NEW.venue_id
+        LIMIT 1;
+
+        IF v_existing_id IS NOT NULL THEN
+            RAISE EXCEPTION 'Venue "%" di kota "%" sudah terdaftar dengan ID %.', 
+                            NEW.venue_name, NEW.city, v_existing_id;
         END IF;
+        
         RETURN NEW;
         
     ELSIF TG_OP = 'DELETE' THEN
