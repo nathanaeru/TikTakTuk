@@ -12,6 +12,9 @@ urlpatterns = [
     path("register/admin/", views.register_admin_view, name="register_admin"),
     path("login/", views.login_view, name="login"),
     path("logout/", views.logout_view, name="logout"),
+    path(
+        "profile/change-password/", views.change_password_view, name="change_password"
+    ),
     # Legacy URLs (kept for backward compatibility, redirects to choose_role)
     path("register/", views.choose_role_view, name="register"),
     path(
