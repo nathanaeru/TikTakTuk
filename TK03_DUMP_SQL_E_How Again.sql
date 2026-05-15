@@ -180,23 +180,22 @@ END;
 $$;
 
 CREATE OR REPLACE FUNCTION check_ticket_quota_func() RETURNS trigger
-    LANGUAGE plpgsql
     AS $$
-DECLARE
-    v_quota INTEGER;
-    v_sold INTEGER;
-    v_category_name VARCHAR;
-BEGIN
-    SELECT quota, category_name INTO v_quota, v_category_name
-    FROM TICKET_CATEGORY WHERE category_id = NEW.tcategory_id;
-    SELECT COUNT(*) INTO v_sold FROM TICKET WHERE tcategory_id = NEW.tcategory_id;
-    IF v_sold >= v_quota THEN
-        RAISE EXCEPTION 'Kuota kategori tiket "%%" sudah penuh. Tidak dapat membuat tiket baru.', 
+    DECLARE
+        v_quota INTEGER;
+        v_sold INTEGER;
+        v_category_name VARCHAR;
+    BEGIN
+        SELECT quota, category_name INTO v_quota, v_category_name
+        FROM TICKET_CATEGORY WHERE category_id = NEW.tcategory_id;
+        SELECT COUNT(*) INTO v_sold FROM TICKET WHERE tcategory_id = NEW.tcategory_id;
+        IF v_sold >= v_quota THEN
+            RAISE EXCEPTION 'Kuota kategori tiket "%" sudah penuh. Tidak dapat membuat tiket baru.', 
                         v_category_name;
-    END IF;
-    RETURN NEW;
-END;
-$$;
+        END IF;
+        RETURN NEW;
+    END;
+    $$ LANGUAGE plpgsql;
 
 CREATE TRIGGER trg_check_seat_delete
     BEFORE DELETE ON SEAT
