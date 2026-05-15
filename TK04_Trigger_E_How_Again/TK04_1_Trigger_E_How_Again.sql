@@ -16,7 +16,7 @@ BEGIN
     END IF;
 
     IF LENGTH(NEW.password) < 8 THEN
-        RAISE EXCEPTION 'Error: Password minimal harus 8 karakter.';
+        RAISE EXCEPTION 'Password minimal harus 8 karakter.';
     END IF;
 
     RETURN NEW;

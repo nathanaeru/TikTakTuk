@@ -2,8 +2,10 @@ CREATE OR REPLACE FUNCTION TikTakTuk.check_seat_delete_func()
 RETURNS TRIGGER AS $$
 BEGIN
     IF EXISTS (SELECT 1 FROM TikTakTuk.HAS_RELATIONSHIP WHERE seat_id = OLD.seat_id) THEN
-        RAISE EXCEPTION 'Kursi % Baris % No. % tidak dapat dihapus karena sudah terisi.', OLD.section, OLD.row_number, OLD.seat_number;
+        RAISE EXCEPTION 'Kursi % - Baris % No. % tidak dapat dihapus karena sudah terisi.', 
+                        OLD.section, OLD.row_number, OLD.seat_number;
     END IF;
+    
     RETURN OLD;
 END;
 $$ LANGUAGE plpgsql;
@@ -22,13 +24,11 @@ DECLARE
 BEGIN
     SELECT quota, category_name INTO v_quota, v_category_name
     FROM TikTakTuk.TICKET_CATEGORY WHERE category_id = NEW.tcategory_id;
-
     SELECT COUNT(*) INTO v_sold FROM TikTakTuk.TICKET WHERE tcategory_id = NEW.tcategory_id;
-
     IF v_sold >= v_quota THEN
-        RAISE EXCEPTION 'Kuota kategori tiket "%" sudah penuh.', v_category_name;
+        RAISE EXCEPTION 'Kuota kategori tiket "%" sudah penuh. Tidak dapat membuat tiket baru.', 
+                        v_category_name;
     END IF;
-
     RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;

@@ -4,6 +4,18 @@ from django.contrib.auth.hashers import make_password, check_password
 from django.db import connection
 
 
+def clean_db_error(e):
+    """Ambil hanya baris pesan utama dari exception psycopg2 / trigger DB."""
+    raw_msg = str(e)
+    first_line = raw_msg.split("\n")[0].strip()
+    if first_line.upper().startswith("ERROR:"):
+        clean_msg = first_line[6:].strip()
+    else:
+        clean_msg = first_line
+    final_msg = f"ERROR: {clean_msg}"
+    return final_msg
+
+
 def choose_role_view(request):
     if "user_id" in request.session:
         return redirect("dashboard")
@@ -55,8 +67,7 @@ def register_customer_view(request):
             return redirect("auth:login")
 
         except Exception as e:
-            # Error message akan mengambil pesan RAISE EXCEPTION dari Trigger di database
-            messages.error(request, f"Gagal mendaftar: {str(e)}")
+            messages.error(request, clean_db_error(e))
             return redirect("auth:register_customer")
 
     return render(request, "auth/register_customer.html")
@@ -107,7 +118,7 @@ def register_organizer_view(request):
             return redirect("auth:login")
 
         except Exception as e:
-            messages.error(request, f"Gagal mendaftar: {str(e)}")
+            messages.error(request, clean_db_error(e))
             return redirect("auth:register_organizer")
 
     return render(request, "auth/register_organizer.html")
@@ -153,7 +164,7 @@ def register_admin_view(request):
             return redirect("auth:login")
 
         except Exception as e:
-            messages.error(request, f"Gagal mendaftar: {str(e)}")
+            messages.error(request, clean_db_error(e))
             return redirect("auth:register_admin")
 
     return render(request, "auth/register_admin.html")
@@ -210,7 +221,7 @@ def login_view(request):
                     messages.error(request, "Username atau password salah!")
 
         except Exception as e:
-            messages.error(request, f"Terjadi kesalahan: {e}")
+            messages.error(request, clean_db_error(e))
 
     return render(request, "auth/login.html")
 
@@ -219,3 +230,160 @@ def logout_view(request):
     request.session.flush()
     messages.success(request, "Anda berhasil logout.")
     return redirect("auth:login")
+
+
+def update_profile_view(request):
+    user_id = request.session.get("user_id")
+    if not user_id:
+        messages.error(request, "Silakan login terlebih dahulu.")
+        return redirect("auth:login")
+
+    if request.method != "POST":
+        return redirect("dashboard_page", page="profile")
+
+    role = request.session.get("role", "")
+
+    try:
+        with connection.cursor() as cursor:
+            cursor.execute("SET search_path TO TikTakTuk, public")
+
+            if role == "customer":
+                full_name = request.POST.get("full_name", "").strip()
+                phone = request.POST.get("phone_number", "").strip()
+
+                cursor.execute(
+                    """
+                    UPDATE CUSTOMER
+                    SET full_name = %s, phone_number = %s
+                    WHERE user_id = %s
+                    """,
+                    [full_name, phone, user_id],
+                )
+
+            elif role == "organizer":
+                organizer_name = request.POST.get("organizer_name", "").strip()
+                contact_email = request.POST.get("contact_email", "").strip()
+
+                cursor.execute(
+                    """
+                    UPDATE ORGANIZER
+                    SET organizer_name = %s, contact_email = %s
+                    WHERE user_id = %s
+                    """,
+                    [organizer_name, contact_email, user_id],
+                )
+
+            else:
+                # Admin tidak punya profil tambahan selain akun
+                messages.info(request, "Tidak ada profil tambahan untuk role ini.")
+                return redirect("dashboard_page", page="profile")
+
+        messages.success(request, "Profil Anda berhasil diperbarui!")
+
+    except Exception as e:
+        messages.error(request, clean_db_error(e))
+
+    return redirect("dashboard_page", page="profile")
+
+
+def update_password_view(request):
+    user_id = request.session.get("user_id")
+    if not user_id:
+        messages.error(request, "Silakan login terlebih dahulu.")
+        return redirect("auth:login")
+
+    if request.method != "POST":
+        return redirect("dashboard_page", page="profile")
+
+    old_password = request.POST.get("old_password", "")
+    new_password = request.POST.get("new_password", "")
+    confirm_password = request.POST.get("confirm_password", "")
+
+    # ── Validasi
+    if new_password != confirm_password:
+        messages.error(request, "Password baru dan konfirmasi tidak cocok!")
+        return redirect("dashboard_page", page="profile")
+
+    if len(new_password) < 8:
+        messages.error(request, "Error: Password minimal harus 8 karakter.")
+        return redirect("dashboard_page", page="profile")
+
+    try:
+        with connection.cursor() as cursor:
+            cursor.execute("SET search_path TO TikTakTuk, public")
+
+            # Ambil password lama dari DB
+            cursor.execute(
+                "SELECT password FROM USER_ACCOUNT WHERE user_id = %s",
+                [user_id],
+            )
+            row = cursor.fetchone()
+            if not row:
+                messages.error(request, "Akun tidak ditemukan.")
+                return redirect("dashboard_page", page="profile")
+
+            db_password = row[0]
+
+            # Cek password lama (support hashed maupun plain untuk legacy data)
+            if not (
+                check_password(old_password, db_password) or old_password == db_password
+            ):
+                messages.error(request, "Password lama yang Anda masukkan salah.")
+                return redirect("dashboard_page", page="profile")
+
+            # Update password — trigger DB ikut memvalidasi panjang
+            hashed_new = make_password(new_password)
+            cursor.execute(
+                "UPDATE USER_ACCOUNT SET password = %s WHERE user_id = %s",
+                [hashed_new, user_id],
+            )
+
+        messages.success(request, "Password berhasil diperbarui!")
+
+    except Exception as e:
+        messages.error(request, clean_db_error(e))
+
+    return redirect("dashboard_page", page="profile")
+
+
+def change_password_view(request):
+    # RBAC: Pastikan pengguna sudah login
+    user_id = request.session.get("user_id")
+    if not user_id:
+        return redirect("auth:login")
+
+    if request.method == "POST":
+        old_password = request.POST.get("old_password")
+        new_password = request.POST.get("new_password")
+        confirm_password = request.POST.get("confirm_password")
+
+        # Validasi dasar
+        if new_password != confirm_password:
+            messages.error(request, "Password baru dan konfirmasi tidak cocok.")
+            return redirect("auth:profile")
+
+        try:
+            with connection.cursor() as cursor:
+                cursor.execute("SET search_path TO TikTakTuk, public")
+
+                # 1. Ambil password lama dari database untuk verifikasi
+                cursor.execute(
+                    "SELECT password FROM USER_ACCOUNT WHERE user_id = %s", [user_id]
+                )
+                row = cursor.fetchone()
+
+                if row and check_password(old_password, row[0]):
+                    # 2. Hash password baru dan update ke database
+                    hashed_new_password = make_password(new_password)
+                    cursor.execute(
+                        "UPDATE USER_ACCOUNT SET password = %s WHERE user_id = %s",
+                        [hashed_new_password, user_id],
+                    )
+                    messages.success(request, "Password berhasil diperbarui!")
+                else:
+                    messages.error(request, "Password lama yang Anda masukkan salah.")
+
+        except Exception as e:
+            messages.error(request, clean_db_error(e))
+
+    return redirect("dashboard_page", page="profile")
