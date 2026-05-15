@@ -9,7 +9,7 @@
 
 ## Deployment Link
 
-Aplikasi dapat diakses pada link berikut: [https://web-production-cac588.up.railway.app/](https://web-production-cac588.up.railway.app/)
+Aplikasi dapat diakses pada link berikut: [https://tiktaktuk-howagain.up.railway.app/](https://tiktaktuk-howagain.up.railway.app/)
 
 ## Cara Setup Proyek
 

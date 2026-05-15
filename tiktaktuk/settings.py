@@ -33,8 +33,14 @@ SECRET_KEY = (
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.getenv("DEBUG", "False").lower() == "true"
 
-ALLOWED_HOSTS = ["127.0.0.1", "localhost", "web-production-cac588.up.railway.app"]
+ALLOWED_HOSTS = ["127.0.0.1", "localhost", "tiktaktuk-howagain.up.railway.app"]
 
+# Tambahkan domain Railway Anda dengan prefix https://
+CSRF_TRUSTED_ORIGINS = [
+    "https://tiktaktuk-howagain.up.railway.app",
+    "https://localhost",
+    "https://127.0.0.1",
+]
 
 # Application definition
 

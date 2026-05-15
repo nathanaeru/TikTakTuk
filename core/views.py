@@ -765,7 +765,7 @@ def create_ticket(request, user_id):
 
         try:
             with connection.cursor() as cursor:
-                cursor.execute("SET search_path TO tiktaktuk, public")
+                cursor.execute("SET search_path TO TikTakTuk, public")
 
                 # Cek apakah kategori masih ada kuota
                 cursor.execute(
@@ -820,15 +820,28 @@ def update_ticket(request, user_id, ticket_id):
 
         try:
             with connection.cursor() as cursor:
-                cursor.execute("SET search_path TO tiktaktuk, public")
-                cursor.execute(
-                    """
-                    UPDATE TICKET 
-                    SET status = %s 
-                    WHERE ticket_id = %s
-                """,
-                    [new_status, ticket_id],
-                )
+                cursor.execute("SET search_path TO TikTakTuk, public")
+
+                cursor.execute("""
+                    SELECT EXISTS (
+                        SELECT 1
+                        FROM information_schema.columns
+                        WHERE table_name = 'ticket'
+                          AND column_name = 'status'
+                          AND table_schema IN ('tiktaktuk', 'TikTakTuk', 'public')
+                    )
+                """)
+                has_status = cursor.fetchone()[0]
+
+                if has_status:
+                    cursor.execute(
+                        """
+                        UPDATE TICKET
+                        SET status = %s
+                        WHERE ticket_id = %s
+                    """,
+                        [new_status, ticket_id],
+                    )
 
                 cursor.execute(
                     "DELETE FROM HAS_RELATIONSHIP WHERE ticket_id = %s", [ticket_id]
@@ -846,13 +859,7 @@ def update_ticket(request, user_id, ticket_id):
             messages.success(request, "Data tiket berhasil diperbarui!")
 
         except Exception as e:
-            error_msg = str(e)
-            if 'column "status" does not exist' in error_msg:
-                messages.error(
-                    request, "Gagal: Kolom 'status' belum ada. Jalankan ALTER TABLE."
-                )
-            else:
-                messages.error(request, f"Gagal: {e}")
+            messages.error(request, f"Gagal: {e}")
 
     return redirect("ticket_list", user_id=user_id)
 

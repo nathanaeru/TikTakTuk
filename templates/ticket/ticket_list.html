@@ -54,7 +54,21 @@
                 </svg>
               </div>
               <div class="text-right">
-                <span class="{% if t.10 == 'TERPAKAI' %}bg-orange-500/20 text-orange-400{% elif t.10 == 'VOID' %}bg-red-500/20 text-red-400{% else %}bg-emerald-500/20 text-emerald-400{% endif %} text-[9px] px-2 py-0.5 rounded-full font-bold uppercase mb-1 inline-block">{{ t.10 }}</span>
+                <span class="{% if t.10 == 'TERPAKAI' %}
+                    
+                    bg-orange-500/20 text-orange-400
+
+                  {% elif t.10 == 'VOID' %}
+                    
+                    bg-red-500/20 text-red-400
+
+                  {% else %}
+                    
+                    bg-emerald-500/20 text-emerald-400
+
+                  {% endif %} text-[9px] px-2 py-0.5 rounded-full font-bold uppercase mb-1 inline-block">
+                  {{ t.10 }}
+                </span>
                 <span class="text-[10px] font-bold text-slate-500 uppercase block tracking-widest">KODE TIKET</span>
                 <span class="text-xs font-black text-blue-400 uppercase tracking-tighter">{{ t.1 }}</span>
               </div>
@@ -105,18 +119,18 @@
             </div>
           </div>
           <div id="qrToast" class="fixed top-6 left-1/2 -translate-x-1/2 z-50 hidden transition-all">
-          <div class="bg-slate-900 border border-blue-500/30 text-white px-6 py-4 rounded-2xl shadow-2xl flex items-center gap-4">
-            <div class="w-10 h-10 bg-blue-500/20 rounded-xl flex items-center justify-center">
-              <svg class="w-5 h-5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
-              </svg>
-            </div>
-            <div>
-              <p class="font-bold text-sm text-white">QR Code Terkirim!</p>
-              <p class="text-xs text-slate-400">Tiket QR telah dikirim ke email Anda.</p>
+            <div class="bg-slate-900 border border-blue-500/30 text-white px-6 py-4 rounded-2xl shadow-2xl flex items-center gap-4">
+              <div class="w-10 h-10 bg-blue-500/20 rounded-xl flex items-center justify-center">
+                <svg class="w-5 h-5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                </svg>
+              </div>
+              <div>
+                <p class="font-bold text-sm text-white">QR Code Terkirim!</p>
+                <p class="text-xs text-slate-400">Tiket QR telah dikirim ke email Anda.</p>
+              </div>
             </div>
           </div>
-        </div>
         {% empty %}
           <div class="col-span-full text-center py-24 border-2 border-dashed border-slate-800 rounded-[3rem]">
             <p class="text-slate-500 font-bold text-lg">Belum ada tiket yang terdaftar di sistem.</p>
@@ -223,7 +237,8 @@
     </div>
   {% endif %}
 
-<script>
+  <script>
+  const templateUserId = "{{ user_id|default:'' }}";
     const ordersData = {{ orders_data|safe }};
     const categoriesData = {{ categories_data|safe }};
     const seatsData = {{ seats_data|safe }};
@@ -315,6 +330,11 @@
         return pathParts.find(p => uuidRegex.test(p)) || null;
     }
 
+    function getTicketDashboardBasePath() {
+      const userId = templateUserId || getUserIdFromPath();
+      return userId ? `/dashboard/${userId}/ticket` : '/dashboard/ticket';
+    }
+
     function showQRToast() {
         const toast = document.getElementById('qrToast');
         toast.classList.remove('hidden');
@@ -326,10 +346,7 @@
     function openUpdateModal(id, kode, status, currentSeatId) {
         const modal = document.getElementById('updateTicketModal');
         const form = document.getElementById('updateForm');
-        const pathParts = window.location.pathname.split('/');
-        const userId = pathParts[2];
-
-        form.action = `/dashboard/${userId}/ticket/update/${id}/`;
+      form.action = `${getTicketDashboardBasePath()}/update/${id}/`;
 
         document.getElementById('update_kode').value = kode;
         document.getElementById('update_status').value = status;
@@ -349,10 +366,7 @@
     function confirmDelete(id) {
         const modal = document.getElementById('deleteTicketModal');
         const deleteBtn = document.getElementById('confirmDeleteButton');
-        const pathParts = window.location.pathname.split('/');
-        const userId = pathParts[2];
-
-        deleteBtn.href = `/dashboard/${userId}/ticket/delete/${id}/`;
+      deleteBtn.href = `${getTicketDashboardBasePath()}/delete/${id}/`;
         modal.classList.remove('hidden');
     }
 
