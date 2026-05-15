@@ -4,9 +4,10 @@ from datetime import datetime
 
 from django.contrib import messages
 from django.db import DatabaseError, IntegrityError, connection, transaction
-from django.shortcuts import redirect, render
+from django.shortcuts import redirect, render, get_object_or_404
 from django.utils import timezone
-
+from django.db.models import Q, Sum
+from .models import Venue, Event, Artist, EventArtist, TicketCategory, Organizer
 
 def home_view(request):
     return redirect("dashboard")
@@ -1218,44 +1219,49 @@ def get_current_role(request):
 def venue_list(request):
     role = get_current_role(request)
 
-    with connection.cursor() as cursor:
-        cursor.execute("SET search_path TO TikTakTuk, public")
-        cursor.execute("""
-            SELECT venue_id, venue_name, address, city, capacity, jenis_seating
-            FROM VENUE
-            ORDER BY city, venue_name
-        """)
-        venues = [
-            {
-                "id": str(row[0]),
-                "name": row[1],
-                "address": row[2],
-                "city": row[3],
-                "capacity": row[4],
-                "jenis_seating": row[5],
-                "has_reserved_seating": row[5] == "Reserved Seating",
-            }
-            for row in cursor.fetchall()
-        ]
+    search = request.GET.get("search", "").strip()
+    city = request.GET.get("city", "").strip()
+    seating = request.GET.get("seating", "").strip()
 
-        cursor.execute("SELECT COALESCE(SUM(capacity), 0) FROM VENUE")
-        total_capacity = cursor.fetchone()[0] or 0
+    venues_qs = Venue.objects.all().order_by("city", "venue_name")
 
-        cursor.execute(
-            "SELECT COUNT(*) FROM VENUE WHERE jenis_seating = 'Reserved Seating'"
+    if search:
+        venues_qs = venues_qs.filter(
+            Q(venue_name__icontains=search) |
+            Q(address__icontains=search)
         )
-        reserved_count = cursor.fetchone()[0] or 0
 
-    return render(
-        request,
-        "venue/venue_list.html",
+    if city:
+        venues_qs = venues_qs.filter(city=city)
+
+    if seating:
+        venues_qs = venues_qs.filter(jenis_seating=seating)
+
+    venues = [
         {
-            "role": role,
-            "venues": venues,
-            "total_capacity": total_capacity,
-            "reserved_count": reserved_count,
-        },
-    )
+            "id": str(v.venue_id),
+            "name": v.venue_name,
+            "address": v.address,
+            "city": v.city,
+            "capacity": v.capacity,
+            "jenis_seating": v.jenis_seating,
+            "has_reserved_seating": v.jenis_seating == "Reserved Seating",
+        }
+        for v in venues_qs
+    ]
+
+    cities = Venue.objects.values_list("city", flat=True).distinct().order_by("city")
+
+    total_capacity = venues_qs.aggregate(total=Sum("capacity"))["total"] or 0
+    reserved_count = venues_qs.filter(jenis_seating="Reserved Seating").count()
+
+    return render(request, "venue/venue_list.html", {
+        "role": role,
+        "venues": venues,
+        "cities": cities,
+        "total_capacity": total_capacity,
+        "reserved_count": reserved_count,
+    })
 
 
 def create_venue(request):
@@ -1268,52 +1274,42 @@ def create_venue(request):
         name = request.POST.get("venue_name", "").strip()
         address = request.POST.get("address", "").strip()
         city = request.POST.get("city", "").strip()
-        capacity = request.POST.get("capacity")
-        capacity = int(capacity)
+        capacity = int(request.POST.get("capacity", 0))
+        has_reserved = request.POST.get("has_reserved_seating") == "on"
+        jenis_seating = "Reserved Seating" if has_reserved else "Free Seating"
 
         if capacity <= 0:
             messages.error(request, "Capacity harus lebih dari 0.")
             return redirect("venue_list")
-        has_reserved = request.POST.get("has_reserved_seating") == "on"
-
-        jenis_seating = "Reserved Seating" if has_reserved else "Free Seating"
 
         try:
-            with connection.cursor() as cursor:
-                cursor.execute("SET search_path TO TikTakTuk, public")
-                cursor.execute(
-                    """
-                    SELECT venue_id
-                    FROM VENUE
-                    WHERE LOWER(venue_name) = LOWER(%s)
-                      AND LOWER(city) = LOWER(%s)
-                    LIMIT 1
-                """,
-                    [name, city],
-                )
-                duplicate = cursor.fetchone()
+            duplicate = Venue.objects.filter(
+                venue_name__iexact=name,
+                city__iexact=city,
+            ).first()
 
-                if duplicate:
-                    messages.error(
-                        request,
-                        f'ERROR: Venue "{name}" di kota "{city}" sudah terdaftar dengan ID {duplicate[0]}.',
-                    )
-                    return redirect("venue_list")
-
-                cursor.execute(
-                    """
-                    INSERT INTO VENUE (venue_id, venue_name, capacity, address, city, jenis_seating)
-                    VALUES (%s, %s, %s, %s, %s, %s)
-                """,
-                    [uuid.uuid4(), name, capacity, address, city, jenis_seating],
+            if duplicate:
+                messages.error(
+                    request,
+                    f'ERROR: Venue "{name}" di kota "{city}" sudah terdaftar dengan ID {duplicate.venue_id}.',
                 )
+                return redirect("venue_list")
+
+            Venue.objects.create(
+                venue_id=uuid.uuid4(),
+                venue_name=name,
+                address=address,
+                city=city,
+                capacity=capacity,
+                jenis_seating=jenis_seating,
+            )
 
             messages.success(request, "Venue berhasil ditambahkan.")
 
         except DatabaseError as e:
             messages.error(request, clean_db_error(e))
 
-        return redirect("venue_list")
+    return redirect("venue_list")
 
 
 def update_venue(request, venue_id):
@@ -1322,56 +1318,46 @@ def update_venue(request, venue_id):
         messages.error(request, "Anda tidak memiliki akses untuk mengubah venue.")
         return redirect("venue_list")
 
+    venue = get_object_or_404(Venue, venue_id=venue_id)
+
     if request.method == "POST":
         name = request.POST.get("venue_name", "").strip()
         address = request.POST.get("address", "").strip()
         city = request.POST.get("city", "").strip()
-        capacity = request.POST.get("capacity")
-        capacity = int(capacity)
+        capacity = int(request.POST.get("capacity", 0))
+        has_reserved = request.POST.get("has_reserved_seating") == "on"
+        jenis_seating = "Reserved Seating" if has_reserved else "Free Seating"
+
         if capacity <= 0:
             messages.error(request, "Capacity harus lebih dari 0.")
             return redirect("venue_list")
-        has_reserved = request.POST.get("has_reserved_seating") == "on"
-
-        jenis_seating = "Reserved Seating" if has_reserved else "Free Seating"
 
         try:
-            with connection.cursor() as cursor:
-                cursor.execute("SET search_path TO TikTakTuk, public")
-                cursor.execute(
-                    """
-                    SELECT venue_id
-                    FROM VENUE
-                    WHERE LOWER(venue_name) = LOWER(%s)
-                      AND LOWER(city) = LOWER(%s)
-                      AND venue_id <> %s
-                    LIMIT 1
-                """,
-                    [name, city, venue_id],
-                )
-                duplicate = cursor.fetchone()
+            duplicate = Venue.objects.filter(
+                venue_name__iexact=name,
+                city__iexact=city,
+            ).exclude(venue_id=venue_id).first()
 
-                if duplicate:
-                    messages.error(
-                        request,
-                        f'ERROR: Venue "{name}" di kota "{city}" sudah terdaftar dengan ID {duplicate[0]}.',
-                    )
-                    return redirect("venue_list")
-
-                cursor.execute(
-                    """
-                    UPDATE VENUE
-                    SET venue_name = %s, address = %s, city = %s, capacity = %s, jenis_seating = %s
-                    WHERE venue_id = %s
-                """,
-                    [name, address, city, capacity, jenis_seating, venue_id],
+            if duplicate:
+                messages.error(
+                    request,
+                    f'ERROR: Venue "{name}" di kota "{city}" sudah terdaftar dengan ID {duplicate.venue_id}.',
                 )
+                return redirect("venue_list")
+
+            venue.venue_name = name
+            venue.address = address
+            venue.city = city
+            venue.capacity = capacity
+            venue.jenis_seating = jenis_seating
+            venue.save()
+
             messages.success(request, "Venue berhasil diperbarui.")
 
         except DatabaseError as e:
             messages.error(request, clean_db_error(e))
 
-        return redirect("venue_list")
+    return redirect("venue_list")
 
 
 def delete_venue(request, venue_id):
@@ -1380,201 +1366,136 @@ def delete_venue(request, venue_id):
         messages.error(request, "Anda tidak memiliki akses untuk menghapus venue.")
         return redirect("venue_list")
 
+    venue = get_object_or_404(Venue, venue_id=venue_id)
+
     try:
-        with connection.cursor() as cursor:
-            cursor.execute("SET search_path TO TikTakTuk, public")
-            cursor.execute(
-                "SELECT venue_name FROM VENUE WHERE venue_id = %s", [venue_id]
+        has_active_event = Event.objects.filter(
+            venue_id=venue_id,
+            event_datetime__gte=timezone.now(),
+        ).exists()
+
+        if has_active_event:
+            messages.error(
+                request,
+                f'ERROR: Venue "{venue.venue_name}" masih memiliki event aktif sehingga tidak dapat dihapus.',
             )
-            venue_row = cursor.fetchone()
-            if not venue_row:
-                messages.error(request, "Venue tidak ditemukan.")
-                return redirect("venue_list")
+            return redirect("venue_list")
 
-            cursor.execute(
-                """
-                SELECT 1
-                FROM EVENT
-                WHERE venue_id = %s AND event_datetime >= %s
-                LIMIT 1
-            """,
-                [venue_id, timezone.now()],
-            )
-            has_active_event = cursor.fetchone() is not None
-
-            if has_active_event:
-                messages.error(
-                    request,
-                    f'ERROR: Venue "{venue_row[0]}" masih memiliki event aktif sehingga tidak dapat dihapus.',
-                )
-                return redirect("venue_list")
-
-            cursor.execute("DELETE FROM VENUE WHERE venue_id = %s", [venue_id])
+        venue.delete()
         messages.success(request, "Venue berhasil dihapus.")
 
     except DatabaseError as e:
         messages.error(request, clean_db_error(e))
+
     return redirect("venue_list")
 
 
 def fetch_event_artists(event_id):
-    with connection.cursor() as cursor:
-        cursor.execute("SET search_path TO TikTakTuk, public")
-        cursor.execute(
-            """
-            SELECT a.artist_id, a.name, a.genre, ea.role
-            FROM EVENT_ARTIST ea
-            JOIN ARTIST a ON a.artist_id = ea.artist_id
-            WHERE ea.event_id = %s
-            ORDER BY a.name
-        """,
-            [event_id],
-        )
-        return fetch_all_dict(cursor)
+    return [
+        {
+            "artist_id": ea.artist.artist_id,
+            "name": ea.artist.name,
+            "genre": ea.artist.genre,
+            "role": getattr(ea, "role", None),
+        }
+        for ea in EventArtist.objects.filter(event_id=event_id)
+        .select_related("artist")
+        .order_by("artist__name")
+    ]
 
 
 def fetch_event_categories(event_id):
-    with connection.cursor() as cursor:
-        cursor.execute("SET search_path TO TikTakTuk, public")
-        cursor.execute(
-            """
-            SELECT category_id, category_name, quota, price, tevent_id
-            FROM TICKET_CATEGORY
-            WHERE tevent_id = %s
-            ORDER BY price DESC, category_name
-        """,
-            [event_id],
-        )
-        return fetch_all_dict(cursor)
+    return list(
+        TicketCategory.objects.filter(tevent_id=event_id)
+        .order_by("-price", "category_name")
+        .values("category_id", "category_name", "quota", "price", "tevent_id")
+    )
 
 
-def format_event(event_row):
-    categories = fetch_event_categories(event_row["event_id"])
-    artists = fetch_event_artists(event_row["event_id"])
-    min_price = min([category["price"] for category in categories], default=0)
+def format_event_obj(event):
+    categories = fetch_event_categories(event.event_id)
+    artists = fetch_event_artists(event.event_id)
+    min_price = min([c["price"] for c in categories], default=0)
 
     return {
-        "id": str(event_row["event_id"]),
-        "title": event_row["event_title"],
-        "date": event_row["event_datetime"].strftime("%Y-%m-%d"),
-        "time": event_row["event_datetime"].strftime("%H:%M"),
-        "venue": event_row["venue_name"],
-        "venue_id": str(event_row["venue_id"]),
+        "id": str(event.event_id),
+        "title": event.event_title,
+        "date": event.event_datetime.strftime("%Y-%m-%d"),
+        "time": event.event_datetime.strftime("%H:%M"),
+        "venue": event.venue.venue_name,
+        "venue_id": str(event.venue_id),
         "artists": [artist["name"] for artist in artists],
         "price": f"{min_price:,.0f}".replace(",", "."),
         "categories": [category["category_name"] for category in categories],
         "icon": "🎵",
-        "organizer_id": str(event_row["organizer_id"]),
+        "organizer_id": str(event.organizer_id),
     }
 
 
-def fetch_events(event_sql, params=None):
-    with connection.cursor() as cursor:
-        cursor.execute("SET search_path TO TikTakTuk, public")
-        cursor.execute(event_sql, params or [])
-        return [format_event(row) for row in fetch_all_dict(cursor)]
-
-
 def event_list(request):
-    search = request.GET.get("search")
-    venue_id = request.GET.get("venue")
-    artist_id = request.GET.get("artist")
+    search = request.GET.get("search", "").strip()
+    venue_id = request.GET.get("venue", "").strip()
+    artist_id = request.GET.get("artist", "").strip()
 
-    event_sql = """
-        SELECT DISTINCT e.event_id, e.event_datetime, e.event_title, e.venue_id, v.venue_name, e.organizer_id
-        FROM EVENT e
-        JOIN VENUE v ON v.venue_id = e.venue_id
-    """
-    filters = []
-    params = []
-
-    if artist_id:
-        event_sql += " JOIN EVENT_ARTIST ea ON ea.event_id = e.event_id"
-        filters.append("ea.artist_id = %s")
-        params.append(artist_id)
+    events_qs = Event.objects.select_related("venue", "organizer").all()
 
     if search:
-        filters.append("e.event_title ILIKE %s")
-        params.append(f"%{search}%")
+        events_qs = events_qs.filter(event_title__icontains=search)
 
     if venue_id:
-        filters.append("e.venue_id = %s")
-        params.append(venue_id)
+        events_qs = events_qs.filter(venue_id=venue_id)
 
-    if filters:
-        event_sql += " WHERE " + " AND ".join(filters)
+    if artist_id:
+        events_qs = events_qs.filter(eventartist__artist_id=artist_id)
 
-    event_sql += " ORDER BY e.event_datetime"
+    events_qs = events_qs.distinct().order_by("event_datetime")
 
-    events = fetch_events(event_sql, params)
+    events = [format_event_obj(event) for event in events_qs]
 
-    with connection.cursor() as cursor:
-        cursor.execute("SET search_path TO TikTakTuk, public")
-        cursor.execute(
-            "SELECT venue_id, venue_name FROM VENUE ORDER BY city, venue_name"
-        )
-        venues = [
-            {"venue_id": str(row[0]), "venue_name": row[1]} for row in cursor.fetchall()
-        ]
+    venues = [
+        {"venue_id": str(v.venue_id), "venue_name": v.venue_name}
+        for v in Venue.objects.all().order_by("city", "venue_name")
+    ]
 
-        cursor.execute("SELECT artist_id, name FROM ARTIST ORDER BY name")
-        artists = [
-            {"artist_id": str(row[0]), "name": row[1]} for row in cursor.fetchall()
-        ]
+    artists = [
+        {"artist_id": str(a.artist_id), "name": a.name}
+        for a in Artist.objects.all().order_by("name")
+    ]
 
-    return render(
-        request,
-        "event/event_list.html",
-        {
-            "role": get_current_role(request),
-            "events": events,
-            "venues": venues,
-            "artists": artists,
-        },
-    )
+    return render(request, "event/event_list.html", {
+        "role": get_current_role(request),
+        "events": events,
+        "venues": venues,
+        "artists": artists,
+    })
 
 
 def admin_event_list(request):
-    events = fetch_events("""
-        SELECT e.event_id, e.event_datetime, e.event_title, e.venue_id, v.venue_name, e.organizer_id
-        FROM EVENT e
-        JOIN VENUE v ON v.venue_id = e.venue_id
-        ORDER BY e.event_datetime
-    """)
+    events_qs = Event.objects.select_related("venue", "organizer").all().order_by("event_datetime")
+    events = [format_event_obj(event) for event in events_qs]
 
-    with connection.cursor() as cursor:
-        cursor.execute("SET search_path TO TikTakTuk, public")
-        cursor.execute(
-            "SELECT venue_id, venue_name FROM VENUE ORDER BY city, venue_name"
-        )
-        venues = [
-            {"venue_id": str(row[0]), "venue_name": row[1]} for row in cursor.fetchall()
-        ]
+    venues = [
+        {"venue_id": str(v.venue_id), "venue_name": v.venue_name}
+        for v in Venue.objects.all().order_by("city", "venue_name")
+    ]
 
-        cursor.execute(
-            "SELECT organizer_id, organizer_name FROM ORGANIZER ORDER BY organizer_name"
-        )
-        organizers = [
-            {"organizer_id": str(row[0]), "organizer_name": row[1]}
-            for row in cursor.fetchall()
-        ]
+    organizers = [
+        {"organizer_id": str(o.organizer_id), "organizer_name": o.organizer_name}
+        for o in Organizer.objects.all().order_by("organizer_name")
+    ]
 
-        cursor.execute("SELECT artist_id, name FROM ARTIST ORDER BY name")
-        artists = [
-            {"artist_id": str(row[0]), "name": row[1]} for row in cursor.fetchall()
-        ]
+    artists = [
+        {"artist_id": str(a.artist_id), "name": a.name}
+        for a in Artist.objects.all().order_by("name")
+    ]
 
-    return render(
-        request,
-        "event/my_event_list.html",
-        {
-            "role": "admin",
-            "events": events,
-            "venues": venues,
-            "organizers": organizers,
-            "artists": artists,
-        },
-    )
+    return render(request, "event/my_event_list.html", {
+        "role": "admin",
+        "events": events,
+        "venues": venues,
+        "organizers": organizers,
+        "artists": artists,
+    })
 
 
 def my_event_list(request):
@@ -1582,97 +1503,81 @@ def my_event_list(request):
     role = get_current_role(request)
 
     if role != "organizer":
-        messages.error(
-            request, "Anda harus login sebagai organizer untuk mengakses halaman ini."
-        )
+        messages.error(request, "Anda harus login sebagai organizer untuk mengakses halaman ini.")
         return redirect("event_list")
 
-    with connection.cursor() as cursor:
-        cursor.execute("SET search_path TO TikTakTuk, public")
-        cursor.execute(
-            "SELECT organizer_id FROM ORGANIZER WHERE user_id = %s", [user_id]
-        )
-        organizer_row = cursor.fetchone()
+    organizer = Organizer.objects.filter(user_id=user_id).first()
 
-    if not organizer_row:
+    if not organizer:
         messages.error(request, "Data organizer tidak ditemukan.")
         return redirect("event_list")
 
-    events = fetch_events(
-        """
-        SELECT e.event_id, e.event_datetime, e.event_title, e.venue_id, v.venue_name, e.organizer_id
-        FROM EVENT e
-        JOIN VENUE v ON v.venue_id = e.venue_id
-        WHERE e.organizer_id = %s
-        ORDER BY e.event_datetime
-    """,
-        [organizer_row[0]],
+    events_qs = (
+        Event.objects
+        .select_related("venue", "organizer")
+        .filter(organizer=organizer)
+        .order_by("event_datetime")
     )
 
-    with connection.cursor() as cursor:
-        cursor.execute("SET search_path TO TikTakTuk, public")
-        cursor.execute(
-            "SELECT venue_id, venue_name FROM VENUE ORDER BY city, venue_name"
-        )
-        venues = [
-            {"venue_id": str(row[0]), "venue_name": row[1]} for row in cursor.fetchall()
-        ]
+    events = [format_event_obj(event) for event in events_qs]
 
-        cursor.execute("SELECT artist_id, name FROM ARTIST ORDER BY name")
-        artists = [
-            {"artist_id": str(row[0]), "name": row[1]} for row in cursor.fetchall()
-        ]
+    venues = [
+        {"venue_id": str(v.venue_id), "venue_name": v.venue_name}
+        for v in Venue.objects.all().order_by("city", "venue_name")
+    ]
 
-    return render(
-        request,
-        "event/my_event_list.html",
-        {
-            "role": "organizer",
-            "events": events,
-            "venues": venues,
-            "artists": artists,
-        },
-    )
+    artists = [
+        {"artist_id": str(a.artist_id), "name": a.name}
+        for a in Artist.objects.all().order_by("name")
+    ]
+
+    return render(request, "event/my_event_list.html", {
+        "role": "organizer",
+        "events": events,
+        "venues": venues,
+        "artists": artists,
+    })
 
 
-def save_event_artists(event, artist_ids):
-    with connection.cursor() as cursor:
-        cursor.execute("SET search_path TO TikTakTuk, public")
-        cursor.execute("DELETE FROM EVENT_ARTIST WHERE event_id = %s", [event])
-        for artist_id in artist_ids:
-            if artist_id:
-                cursor.execute(
-                    "INSERT INTO EVENT_ARTIST (event_id, artist_id) VALUES (%s, %s)",
-                    [event, artist_id],
-                )
+def save_event_artists(event_id, artist_ids):
+    EventArtist.objects.filter(event_id=event_id).delete()
+
+    for artist_id in artist_ids:
+        if artist_id:
+            EventArtist.objects.create(
+                event_id=event_id,
+                artist_id=artist_id,
+            )
 
 
-def save_event_categories(event, names, prices, quotas):
-    with connection.cursor() as cursor:
-        cursor.execute("SET search_path TO TikTakTuk, public")
-        cursor.execute("DELETE FROM TICKET_CATEGORY WHERE tevent_id = %s", [event])
-        for name, price, quota in zip(names, prices, quotas):
-            if name and price and quota:
-                cursor.execute(
-                    """
-                    INSERT INTO TICKET_CATEGORY (category_id, category_name, price, quota, tevent_id)
-                    VALUES (%s, %s, %s, %s, %s)
-                """,
-                    [uuid.uuid4(), name, price, quota, event],
-                )
+def save_event_categories(event_id, names, prices, quotas):
+    TicketCategory.objects.filter(tevent_id=event_id).delete()
+
+    for name, price, quota in zip(names, prices, quotas):
+        if name and price and quota:
+            TicketCategory.objects.create(
+                category_id=uuid.uuid4(),
+                category_name=name,
+                price=price,
+                quota=quota,
+                tevent_id=event_id,
+            )
 
 
 def create_event(request):
     role = get_current_role(request)
+
     if role not in ["admin", "organizer"]:
         messages.error(request, "Anda tidak memiliki akses untuk membuat event.")
         return redirect("event_list")
 
     if request.method == "POST":
         title = request.POST.get("event_title", "").strip()
+
         if not title:
             messages.error(request, "Judul event tidak boleh kosong.")
             return redirect("my_event_list" if role == "organizer" else "admin_event_list")
+
         date = request.POST.get("date")
         time = request.POST.get("time")
         venue_id = request.POST.get("venue_id")
@@ -1685,49 +1590,32 @@ def create_event(request):
         try:
             event_datetime = datetime.strptime(f"{date} {time}", "%Y-%m-%d %H:%M")
 
+            if role == "organizer":
+                organizer = Organizer.objects.filter(user_id=request.session.get("user_id")).first()
+            else:
+                organizer_id = request.POST.get("organizer_id")
+                organizer = (
+                    Organizer.objects.filter(organizer_id=organizer_id).first()
+                    if organizer_id
+                    else Organizer.objects.order_by("organizer_name").first()
+                )
+
+            if not organizer:
+                messages.error(request, "Data organizer tidak ditemukan.")
+                return redirect("event_list" if role == "organizer" else "admin_event_list")
+
             with transaction.atomic():
-                with connection.cursor() as cursor:
-                    cursor.execute("SET search_path TO TikTakTuk, public")
-                    if role == "organizer":
-                        cursor.execute(
-                            "SELECT organizer_id FROM ORGANIZER WHERE user_id = %s",
-                            [request.session.get("user_id")],
-                        )
-                    else:
-                        cursor.execute(
-                            "SELECT organizer_id FROM ORGANIZER ORDER BY organizer_name LIMIT 1"
-                        )
-                    organizer_row = cursor.fetchone()
+                event = Event.objects.create(
+                    event_id=uuid.uuid4(),
+                    event_datetime=event_datetime,
+                    event_title=title,
+                    venue_id=venue_id,
+                    organizer=organizer,
+                )
 
-                    if not organizer_row:
-                        messages.error(request, "Data organizer tidak ditemukan.")
-                        return redirect(
-                            "event_list" if role == "organizer" else "admin_event_list"
-                        )
-
-                    new_event_id = uuid.uuid4()
-
-                    cursor.execute(
-                        """
-                        INSERT INTO EVENT (event_id, event_datetime, event_title, venue_id, organizer_id)
-                        VALUES (%s, %s, %s, %s, %s)
-                        RETURNING event_id
-                    """,
-                        [
-                            new_event_id,
-                            event_datetime,
-                            title,
-                            venue_id,
-                            organizer_row[0],
-                        ],
-                    )
-
-                    created_event_id = cursor.fetchone()[0]
-
-                save_event_artists(created_event_id, artist_ids)
-
+                save_event_artists(event.event_id, artist_ids)
                 save_event_categories(
-                    created_event_id,
+                    event.event_id,
                     category_names,
                     category_prices,
                     category_quotas,
@@ -1745,72 +1633,51 @@ def create_event(request):
 
 def update_event(request, event_id):
     role = get_current_role(request)
+
     if role not in ["admin", "organizer"]:
         messages.error(request, "Anda tidak memiliki akses untuk mengubah event.")
         return redirect("event_list")
 
-    with connection.cursor() as cursor:
-        cursor.execute("SET search_path TO TikTakTuk, public")
-        cursor.execute("SELECT organizer_id FROM EVENT WHERE event_id = %s", [event_id])
-        event_row = cursor.fetchone()
-
-    if not event_row:
-        messages.error(request, "Event tidak ditemukan.")
-        return redirect("event_list")
+    event = get_object_or_404(Event.objects.select_related("organizer"), event_id=event_id)
 
     if role == "organizer":
-        with connection.cursor() as cursor:
-            cursor.execute("SET search_path TO TikTakTuk, public")
-            cursor.execute(
-                "SELECT organizer_id FROM ORGANIZER WHERE user_id = %s",
-                [request.session.get("user_id")],
-            )
-            organizer_row = cursor.fetchone()
+        organizer = Organizer.objects.filter(user_id=request.session.get("user_id")).first()
 
-        if not organizer_row or event_row[0] != organizer_row[0]:
-            messages.error(
-                request, "Organizer hanya dapat mengubah event miliknya sendiri."
-            )
+        if not organizer or event.organizer_id != organizer.organizer_id:
+            messages.error(request, "Organizer hanya dapat mengubah event miliknya sendiri.")
             return redirect("my_event_list")
 
     if request.method == "POST":
         title = request.POST.get("event_title", "").strip()
+
         if not title:
             messages.error(request, "Judul event tidak boleh kosong.")
             return redirect("my_event_list" if role == "organizer" else "admin_event_list")
+
         date = request.POST.get("date")
         time = request.POST.get("time")
         venue_id = request.POST.get("venue_id")
-        event_datetime = datetime.strptime(
-            f"{date} {time}",
-            "%Y-%m-%d %H:%M"
-        )
+
         artist_ids = request.POST.getlist("artist_ids")
         category_names = request.POST.getlist("category_name")
         category_prices = request.POST.getlist("category_price")
         category_quotas = request.POST.getlist("category_quota")
 
         try:
-            with transaction.atomic():
-                with connection.cursor() as cursor:
-                    cursor.execute("SET search_path TO TikTakTuk, public")
-                    cursor.execute(
-                        """
-                        UPDATE EVENT
-                        SET event_title = %s, event_datetime = %s, venue_id = %s
-                        WHERE event_id = %s
-                    """,
-                        [
-                            title,
-                            event_datetime,
-                            venue_id,
-                            event_id,
-                        ],
-                    )
+            event_datetime = datetime.strptime(f"{date} {time}", "%Y-%m-%d %H:%M")
 
-                save_event_artists(event_id, artist_ids)
+            with transaction.atomic():
+                event.event_title = title
+                event.event_datetime = event_datetime
+                event.venue_id = venue_id
+                event.save()
+
+                save_event_artists(event.event_id, artist_ids)
                 save_event_categories(
-                    event_id, category_names, category_prices, category_quotas
+                    event.event_id,
+                    category_names,
+                    category_prices,
+                    category_quotas,
                 )
 
             messages.success(request, "Event berhasil diperbarui.")
@@ -1821,7 +1688,6 @@ def update_event(request, event_id):
             messages.error(request, f"Gagal memperbarui event: {e}")
 
     return redirect("my_event_list" if role == "organizer" else "admin_event_list")
-
 
 def checkout_view(request):
     event_id = request.GET.get("event")
