@@ -1,229 +1,226 @@
 {% extends 'base.html' %}
 
-{% block title %}Manajemen Promosi - TikTakTuk{% endblock %}
+{% block title %}
+  Manajemen Promosi - TikTakTuk
+{% endblock %}
 
 {% block content %}
-<div class="max-w-7xl mx-auto p-6 md:p-8">
-    
+  <div class="max-w-7xl mx-auto p-6 md:p-8">
     <div class="flex justify-between items-center mb-8">
-        <div>
-            <h2 class="text-3xl font-bold text-white mb-2">Manajemen Promosi</h2>
-            <p class="text-gray-400">Kelola kode promo dan kampanye diskon (Mode: {{ user_role }})</p>
-        </div>
-        {% if user_role == 'Admin' %}
-        <button onclick="openCreateModal()" class="bg-primary hover:bg-primaryHover text-white px-5 py-2.5 rounded-xl font-bold transition-colors shadow-lg shadow-primary/30 flex items-center gap-2">
-            <span>+</span> Buat Promo
-        </button>
-        {% endif %}
+      <div>
+        <h2 class="text-3xl font-bold text-white mb-2">Manajemen Promosi</h2>
+        <p class="text-gray-400">Kelola kode promo dan kampanye diskon (Mode: {{ user_role }})</p>
+      </div>
+      {% if user_role == 'admin' %}
+        <button onclick="openCreateModal()" class="bg-primary hover:bg-primaryHover text-white px-5 py-2.5 rounded-xl font-bold transition-colors shadow-lg shadow-primary/30 flex items-center gap-2"><span>+</span> Buat Promo</button>
+      {% endif %}
     </div>
-    
+
     <!-- STATISTIK RINGKASAN -->
     <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-        <div class="bg-dark-card border border-dark-border rounded-xl p-6 shadow-lg">
-            <p class="text-gray-400 text-xs font-bold uppercase tracking-wider mb-2">TOTAL PROMO</p>
-            <h3 class="text-3xl font-bold text-white">{{ total_promo }}</h3>
-        </div>
-        <div class="bg-dark-card border border-dark-border rounded-xl p-6 shadow-lg">
-            <p class="text-gray-400 text-xs font-bold uppercase tracking-wider mb-2">TOTAL PENGGUNAAN</p>
-            <h3 class="text-3xl font-bold text-white">{{ total_usage }}x</h3>
-        </div>
-        <div class="bg-dark-card border border-dark-border rounded-xl p-6 shadow-lg">
-            <p class="text-gray-400 text-xs font-bold uppercase tracking-wider mb-2">TIPE PERSENTASE</p>
-            <h3 class="text-3xl font-bold text-white">{{ total_percentage }}</h3>
-        </div>
+      <div class="bg-dark-card border border-dark-border rounded-xl p-6 shadow-lg">
+        <p class="text-gray-400 text-xs font-bold uppercase tracking-wider mb-2">TOTAL PROMO</p>
+        <h3 class="text-3xl font-bold text-white">{{ total_promo }}</h3>
+      </div>
+      <div class="bg-dark-card border border-dark-border rounded-xl p-6 shadow-lg">
+        <p class="text-gray-400 text-xs font-bold uppercase tracking-wider mb-2">TOTAL PENGGUNAAN</p>
+        <h3 class="text-3xl font-bold text-white">{{ total_usage }}x</h3>
+      </div>
+      <div class="bg-dark-card border border-dark-border rounded-xl p-6 shadow-lg">
+        <p class="text-gray-400 text-xs font-bold uppercase tracking-wider mb-2">TIPE PERSENTASE</p>
+        <h3 class="text-3xl font-bold text-white">{{ total_percentage }}</h3>
+      </div>
     </div>
 
     <!-- FILTER & SEARCH -->
     <div class="flex flex-col sm:flex-row gap-4 mb-6">
-        <input type="text" placeholder="Cari kode promo..." class="flex-1 max-w-md bg-dark-card border border-dark-border text-white rounded-lg px-4 py-3 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-colors placeholder-gray-500">
-        <select class="bg-dark-card border border-dark-border text-white rounded-lg px-4 py-3 focus:outline-none focus:border-primary transition-colors">
-            <option value="All">Semua Tipe</option>
-            <option value="Persentase">Persentase</option>
-            <option value="Nominal">Nominal</option>
-        </select>
+      <input type="text" placeholder="Cari kode promo..." class="flex-1 max-w-md bg-dark-card border border-dark-border text-white rounded-lg px-4 py-3 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-colors placeholder-gray-500" />
+      <select class="bg-dark-card border border-dark-border text-white rounded-lg px-4 py-3 focus:outline-none focus:border-primary transition-colors">
+        <option value="All">Semua Tipe</option>
+        <option value="Persentase">Persentase</option>
+        <option value="Nominal">Nominal</option>
+      </select>
     </div>
 
     <!-- TABEL PROMOSI -->
     <div class="bg-dark-card border border-dark-border rounded-xl shadow-lg overflow-x-auto">
-        <table class="w-full text-left border-collapse">
-            <thead>
-                <tr class="border-b border-dark-border text-gray-400 text-sm uppercase tracking-wider bg-dark-bg/30">
-                    <th class="py-4 px-6 font-medium">KODE PROMO</th>
-                    <th class="py-4 px-6 font-medium">TIPE</th>
-                    <th class="py-4 px-6 font-medium">NILAI DISKON</th>
-                    <th class="py-4 px-6 font-medium">MULAI</th>
-                    <th class="py-4 px-6 font-medium">BERAKHIR</th>
-                    <th class="py-4 px-6 font-medium">PENGGUNAAN</th>
-                    {% if user_role == 'Admin' %}
-                    <th class="py-4 px-6 font-medium text-center">ACTION</th>
-                    {% endif %}
-                </tr>
-            </thead>
-            <tbody class="text-gray-200">
-                {% for promo in promotions %}
-                <tr class="border-b border-dark-border/50 hover:bg-dark-bg/40 transition-colors">
-                    <td class="py-4 px-6 font-bold flex items-center gap-2">
-                        <span class="text-primary text-lg">🎟️</span> {{ promo.promo_code }}
-                    </td>
-                    
-                    <td class="py-4 px-6">
-                        {% if promo.discount_type == 'Persentase' %}
-                            <span class="bg-purple-500/20 text-purple-400 px-3 py-1 rounded-full text-xs font-bold border border-purple-500/30">PERSENTASE</span>
-                        {% else %}
-                            <span class="bg-orange-500/20 text-orange-400 px-3 py-1 rounded-full text-xs font-bold border border-orange-500/30">NOMINAL</span>
-                        {% endif %}
-                    </td>
-                    
-                    <td class="py-4 px-6 font-medium">
-                        {% if promo.discount_type == 'Persentase' %}{{ promo.discount_value }}%
-                        {% else %}Rp {{ promo.discount_value }}
-                        {% endif %}
-                    </td>
-                    
-                    <td class="py-4 px-6 text-sm text-gray-400">{{ promo.start_date|date:"Y-m-d" }}</td>
-                    <td class="py-4 px-6 text-sm text-gray-400">{{ promo.end_date|date:"Y-m-d" }}</td>
-                    
-                    <td class="py-4 px-6 font-medium">
-                        {{ promo.current_usage }} <span class="text-gray-500">/ {{ promo.usage_limit }}</span>
-                    </td>
-                    
-                    {% if user_role == 'Admin' %}
-                    <td class="py-4 px-6 text-center">
-                        <button onclick="openUpdateModal('{{ promo.promotion_id }}', '{{ promo.promo_code }}', '{{ promo.discount_type }}', '{{ promo.discount_value }}', '{{ promo.start_date|date:'Y-m-d' }}', '{{ promo.end_date|date:'Y-m-d' }}', '{{ promo.usage_limit }}')" class="text-yellow-400 hover:text-yellow-300 bg-yellow-400/10 hover:bg-yellow-400/20 p-2 rounded-lg transition-colors mr-2" title="Edit Promo">
-                            ✏️
-                        </button>
-                        <button onclick="openDeleteModal('{{ promo.promotion_id }}', '{{ promo.promo_code }}')" class="text-red-400 hover:text-red-300 bg-red-400/10 hover:bg-red-400/20 p-2 rounded-lg transition-colors" title="Hapus Promo">
-                            🗑️
-                        </button>
-                    </td>
-                    {% endif %}
-                </tr>
-                {% empty %}
-                <tr>
-                    <td colspan="7" class="py-12 text-center text-gray-500">
-                        Belum ada data promosi.
-                    </td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-    </div>
-</div>
+      <table class="w-full text-left border-collapse">
+        <thead>
+          <tr class="border-b border-dark-border text-gray-400 text-sm uppercase tracking-wider bg-dark-bg/30">
+            <th class="py-4 px-6 font-medium">KODE PROMO</th>
+            <th class="py-4 px-6 font-medium">TIPE</th>
+            <th class="py-4 px-6 font-medium">NILAI DISKON</th>
+            <th class="py-4 px-6 font-medium">MULAI</th>
+            <th class="py-4 px-6 font-medium">BERAKHIR</th>
+            <th class="py-4 px-6 font-medium">PENGGUNAAN</th>
+            {% if user_role == 'admin' %}
+              <th class="py-4 px-6 font-medium text-center">ACTION</th>
+            {% endif %}
+          </tr>
+        </thead>
+        <tbody class="text-gray-200">
+          {% for promo in promotions %}
+            <tr class="border-b border-dark-border/50 hover:bg-dark-bg/40 transition-colors">
+              <td class="py-4 px-6 font-bold flex items-center gap-2">
+                <span class="text-primary text-lg">🎟️</span> {{ promo.promo_code }}
+              </td>
 
-<!-- ============================================== -->
-<!-- MODALS (Hanya diload jika user Admin)          -->
-<!-- ============================================== -->
-{% if user_role == 'Admin' %}
+              <td class="py-4 px-6">
+                {% if promo.discount_type == 'PERCENTAGE' %}
+                  <span class="bg-purple-500/20 text-purple-400 px-3 py-1 rounded-full text-xs font-bold border border-purple-500/30">PERSENTASE</span>
+                {% else %}
+                  <span class="bg-orange-500/20 text-orange-400 px-3 py-1 rounded-full text-xs font-bold border border-orange-500/30">NOMINAL</span>
+                {% endif %}
+              </td>
+
+              <td class="py-4 px-6 font-medium">
+                {% if promo.discount_type == 'PERCENTAGE' %}
+                  {{ promo.discount_value }}%
+                {% else %}
+                  Rp {{ promo.discount_value|floatformat:0 }}
+                {% endif %}
+              </td>
+
+              <td class="py-4 px-6 text-sm text-gray-400">{{ promo.start_date|date:'Y-m-d' }}</td>
+              <td class="py-4 px-6 text-sm text-gray-400">{{ promo.end_date|date:'Y-m-d' }}</td>
+
+              <td class="py-4 px-6 font-medium">
+                {{ promo.current_usage }} <span class="text-gray-500">/ {{ promo.usage_limit }}</span>
+              </td>
+
+              {% if user_role == 'admin' %}
+                <td class="py-4 px-6 text-center">
+                  <button onclick="openUpdateModal('{{ promo.promotion_id }}', '{{ promo.promo_code }}', '{{ promo.discount_type }}', '{{ promo.discount_value }}', '{{ promo.start_date|date:'Y-m-d' }}', '{{ promo.end_date|date:'Y-m-d' }}', '{{ promo.usage_limit }}')" class="text-yellow-400 hover:text-yellow-300 bg-yellow-400/10 hover:bg-yellow-400/20 p-2 rounded-lg transition-colors mr-2" title="Edit Promo">✏️</button>
+                  <button onclick="openDeleteModal('{{ promo.promotion_id }}', '{{ promo.promo_code }}')" class="text-red-400 hover:text-red-300 bg-red-400/10 hover:bg-red-400/20 p-2 rounded-lg transition-colors" title="Hapus Promo">🗑️</button>
+                </td>
+              {% endif %}
+            </tr>
+          {% empty %}
+            <tr>
+              <td colspan="7" class="py-12 text-center text-gray-500">Belum ada data promosi.</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ============================================== -->
+  <!-- MODALS (Hanya diload jika user Admin) -->
+  <!-- ============================================== -->
+  {% if user_role == 'admin' %}
     <!-- Modal Backdrop -->
     <div id="modalBackdrop" class="fixed inset-0 bg-black/70 backdrop-blur-sm z-40 hidden transition-opacity"></div>
 
     <!-- MODAL CREATE & UPDATE (Digabung formnya biar efisien) -->
     <div id="formModal" class="fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-dark-card border border-dark-border rounded-2xl p-6 w-full max-w-lg z-50 hidden shadow-2xl">
-        <div class="flex justify-between items-center mb-6">
-            <h3 class="text-xl font-bold text-white" id="modalTitle">Buat Promo Baru</h3>
-            <button onclick="closeModal('formModal')" class="text-gray-400 hover:text-white">✕</button>
+      <div class="flex justify-between items-center mb-6">
+        <h3 class="text-xl font-bold text-white" id="modalTitle">Buat Promo Baru</h3>
+        <button onclick="closeModal('formModal')" class="text-gray-400 hover:text-white">✕</button>
+      </div>
+
+      <form id="promoForm" method="POST" action="">
+        {% csrf_token %}
+        <div class="space-y-4">
+          <div>
+            <label class="block text-xs font-bold text-gray-400 uppercase mb-2">Kode Promo</label>
+            <input type="text" name="promo_code" id="input_promo_code" required class="w-full bg-dark-bg border border-dark-border text-white rounded-lg px-4 py-2 focus:outline-none focus:border-primary" placeholder="Masukkan kode promo" />
+          </div>
+
+          <div>
+            <label class="block text-xs font-bold text-gray-400 uppercase mb-2">Tipe Diskon</label>
+            <select name="discount_type" id="input_discount_type" class="w-full bg-dark-bg border border-dark-border text-white rounded-lg px-4 py-2 focus:outline-none focus:border-primary">
+              <option value="PERCENTAGE">Persentase (%)</option>
+              <option value="NOMINAL">Nominal (Rp)</option>
+            </select>
+          </div>
+
+          <div>
+            <label class="block text-xs font-bold text-gray-400 uppercase mb-2">Nilai Diskon</label>
+            <input type="number" name="discount_value" id="input_discount_value" required min="1" class="w-full bg-dark-bg border border-dark-border text-white rounded-lg px-4 py-2 focus:outline-none focus:border-primary" placeholder="cth. 20" />
+          </div>
+
+          <div class="flex gap-4">
+            <div class="flex-1">
+              <label class="block text-xs font-bold text-gray-400 uppercase mb-2">Tanggal Mulai</label>
+              <input type="date" name="start_date" id="input_start_date" required class="w-full bg-dark-bg border border-dark-border text-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:border-primary [color-scheme:dark]" />
+            </div>
+            <div class="flex-1">
+              <label class="block text-xs font-bold text-gray-400 uppercase mb-2">Tanggal Berakhir</label>
+              <input type="date" name="end_date" id="input_end_date" required class="w-full bg-dark-bg border border-dark-border text-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:border-primary [color-scheme:dark]" />
+            </div>
+          </div>
+
+          <div>
+            <label class="block text-xs font-bold text-gray-400 uppercase mb-2">Batas Penggunaan</label>
+            <input type="number" name="usage_limit" id="input_usage_limit" required min="1" class="w-full bg-dark-bg border border-dark-border text-white rounded-lg px-4 py-2 focus:outline-none focus:border-primary" placeholder="100" />
+          </div>
         </div>
-        
-        <form id="promoForm" method="POST" action="">
-            {% csrf_token %}
-            <div class="space-y-4">
-                <div>
-                    <label class="block text-xs font-bold text-gray-400 uppercase mb-2">Kode Promo</label>
-                    <input type="text" name="promo_code" id="input_promo_code" required class="w-full bg-dark-bg border border-dark-border text-white rounded-lg px-4 py-2 focus:outline-none focus:border-primary" placeholder="CTH. TIKTAK20">
-                </div>
-                
-                <div>
-                    <label class="block text-xs font-bold text-gray-400 uppercase mb-2">Tipe Diskon</label>
-                    <select name="discount_type" id="input_discount_type" class="w-full bg-dark-bg border border-dark-border text-white rounded-lg px-4 py-2 focus:outline-none focus:border-primary">
-                        <option value="Persentase">Persentase (%)</option>
-                        <option value="Nominal">Nominal (Rp)</option>
-                    </select>
-                </div>
 
-                <div>
-                    <label class="block text-xs font-bold text-gray-400 uppercase mb-2">Nilai Diskon</label>
-                    <input type="number" name="discount_value" id="input_discount_value" required min="1" class="w-full bg-dark-bg border border-dark-border text-white rounded-lg px-4 py-2 focus:outline-none focus:border-primary" placeholder="cth. 20">
-                </div>
-
-                <div class="flex gap-4">
-                    <div class="flex-1">
-                        <label class="block text-xs font-bold text-gray-400 uppercase mb-2">Tanggal Mulai</label>
-                        <input type="date" name="start_date" id="input_start_date" required class="w-full bg-dark-bg border border-dark-border text-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:border-primary [color-scheme:dark]">
-                    </div>
-                    <div class="flex-1">
-                        <label class="block text-xs font-bold text-gray-400 uppercase mb-2">Tanggal Berakhir</label>
-                        <input type="date" name="end_date" id="input_end_date" required class="w-full bg-dark-bg border border-dark-border text-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:border-primary [color-scheme:dark]">
-                    </div>
-                </div>
-
-                <div>
-                    <label class="block text-xs font-bold text-gray-400 uppercase mb-2">Batas Penggunaan</label>
-                    <input type="number" name="usage_limit" id="input_usage_limit" required min="1" class="w-full bg-dark-bg border border-dark-border text-white rounded-lg px-4 py-2 focus:outline-none focus:border-primary" placeholder="100">
-                </div>
-            </div>
-
-            <div class="flex justify-end gap-3 mt-8">
-                <button type="button" onclick="closeModal('formModal')" class="px-6 py-2.5 rounded-lg text-gray-300 border border-dark-border hover:bg-dark-bg transition-colors font-medium">Batal</button>
-                <button type="submit" id="btnSubmitForm" class="px-6 py-2.5 bg-primary hover:bg-primaryHover text-white rounded-lg transition-colors font-medium">Buat</button>
-            </div>
-        </form>
+        <div class="flex justify-end gap-3 mt-8">
+          <button type="button" onclick="closeModal('formModal')" class="px-6 py-2.5 rounded-lg text-gray-300 border border-dark-border hover:bg-dark-bg transition-colors font-medium">Batal</button>
+          <button type="submit" id="btnSubmitForm" class="px-6 py-2.5 bg-primary hover:bg-primaryHover text-white rounded-lg transition-colors font-medium">Buat</button>
+        </div>
+      </form>
     </div>
 
     <!-- MODAL DELETE -->
     <div id="deleteModal" class="fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-dark-card border border-dark-border rounded-2xl p-6 w-full max-w-md z-50 hidden shadow-2xl">
-        <div class="flex items-center gap-3 mb-4">
-            <h3 class="text-xl font-bold text-red-400">Hapus Promo</h3>
+      <div class="flex items-center gap-3 mb-4">
+        <h3 class="text-xl font-bold text-red-400">Hapus Promo</h3>
+      </div>
+      <p class="text-gray-300 mb-6 leading-relaxed">
+        Apakah Anda yakin ingin menghapus kode promo <strong id="delete-promo-code" class="text-white"></strong>? Tindakan ini tidak dapat dibatalkan.
+      </p>
+
+      <form id="deleteForm" method="POST" action="">
+        {% csrf_token %}
+        <div class="flex justify-end gap-3">
+          <button type="button" onclick="closeModal('deleteModal')" class="px-6 py-2.5 rounded-lg text-gray-300 border border-dark-border hover:bg-dark-bg transition-colors font-medium">Batal</button>
+          <button type="submit" class="px-6 py-2.5 bg-red-500 hover:bg-red-600 text-white rounded-lg transition-colors font-medium">Hapus</button>
         </div>
-        <p class="text-gray-300 mb-6 leading-relaxed">Apakah Anda yakin ingin menghapus kode promo <strong id="delete-promo-code" class="text-white"></strong>? Tindakan ini tidak dapat dibatalkan.</p>
-        
-        <form id="deleteForm" method="POST" action="">
-            {% csrf_token %}
-            <div class="flex justify-end gap-3">
-                <button type="button" onclick="closeModal('deleteModal')" class="px-6 py-2.5 rounded-lg text-gray-300 border border-dark-border hover:bg-dark-bg transition-colors font-medium">Batal</button>
-                <button type="submit" class="px-6 py-2.5 bg-red-500 hover:bg-red-600 text-white rounded-lg transition-colors font-medium">Hapus</button>
-            </div>
-        </form>
+      </form>
     </div>
 
     <script>
-        function openCreateModal() {
-            document.getElementById('modalBackdrop').classList.remove('hidden');
-            document.getElementById('formModal').classList.remove('hidden');
-            document.getElementById('modalTitle').innerText = 'Buat Promo Baru';
-            document.getElementById('btnSubmitForm').innerText = 'Buat';
-            
-            // Reset form dan set action ke URL Create
-            document.getElementById('promoForm').reset();
-            document.getElementById('promoForm').action = "{% url 'create_promotion' %}";
-        }
-
-        function openUpdateModal(id, code, type, value, start, end, limit) {
-            document.getElementById('modalBackdrop').classList.remove('hidden');
-            document.getElementById('formModal').classList.remove('hidden');
-            document.getElementById('modalTitle').innerText = 'Edit Promo';
-            document.getElementById('btnSubmitForm').innerText = 'Simpan';
-            
-            // Isi form dengan data lama & set action ke URL Update
-            document.getElementById('promoForm').action = `/promotions/update/${id}/`;
-            document.getElementById('input_promo_code').value = code;
-            document.getElementById('input_discount_type').value = type;
-            document.getElementById('input_discount_value').value = value;
-            document.getElementById('input_start_date').value = start;
-            document.getElementById('input_end_date').value = end;
-            document.getElementById('input_usage_limit').value = limit;
-        }
-
-        function openDeleteModal(id, code) {
-            document.getElementById('modalBackdrop').classList.remove('hidden');
-            document.getElementById('deleteModal').classList.remove('hidden');
-            document.getElementById('delete-promo-code').innerText = code;
-            document.getElementById('deleteForm').action = `/promotions/delete/${id}/`;
-        }
-
-        function closeModal(modalId) {
-            document.getElementById('modalBackdrop').classList.add('hidden');
-            document.getElementById(modalId).classList.add('hidden');
-        }
+      function openCreateModal() {
+        document.getElementById('modalBackdrop').classList.remove('hidden')
+        document.getElementById('formModal').classList.remove('hidden')
+        document.getElementById('modalTitle').innerText = 'Buat Promo Baru'
+        document.getElementById('btnSubmitForm').innerText = 'Buat'
+      
+        // Reset form dan set action ke URL Create
+        document.getElementById('promoForm').reset()
+        document.getElementById('promoForm').action = "{% url 'create_promotion' %}"
+      }
+      
+      function openUpdateModal(id, code, type, value, start, end, limit) {
+        document.getElementById('modalBackdrop').classList.remove('hidden')
+        document.getElementById('formModal').classList.remove('hidden')
+        document.getElementById('modalTitle').innerText = 'Edit Promo'
+        document.getElementById('btnSubmitForm').innerText = 'Simpan'
+      
+        // Isi form dengan data lama & set action ke URL Update
+        document.getElementById('promoForm').action = `/promotions/update/${id}/`
+        document.getElementById('input_promo_code').value = code
+        document.getElementById('input_discount_type').value = type
+        document.getElementById('input_discount_value').value = value
+        document.getElementById('input_start_date').value = start
+        document.getElementById('input_end_date').value = end
+        document.getElementById('input_usage_limit').value = limit
+      }
+      
+      function openDeleteModal(id, code) {
+        document.getElementById('modalBackdrop').classList.remove('hidden')
+        document.getElementById('deleteModal').classList.remove('hidden')
+        document.getElementById('delete-promo-code').innerText = code
+        document.getElementById('deleteForm').action = `/promotions/delete/${id}/`
+      }
+      
+      function closeModal(modalId) {
+        document.getElementById('modalBackdrop').classList.add('hidden')
+        document.getElementById(modalId).classList.add('hidden')
+      }
     </script>
-{% endif %}
+  {% endif %}
 {% endblock %}

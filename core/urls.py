@@ -1,4 +1,5 @@
 from django.urls import path
+from django.views.generic.base import RedirectView
 from . import views
 
 urlpatterns = [
@@ -20,7 +21,11 @@ urlpatterns = [
         name="delete_seat",
     ),
     path("dashboard/<uuid:user_id>/ticket/", views.ticket_list, name="ticket_list"),
-    path("dashboard/<uuid:user_id>/ticket/create/", views.create_ticket, name="create_ticket"),
+    path(
+        "dashboard/<uuid:user_id>/ticket/create/",
+        views.create_ticket,
+        name="create_ticket",
+    ),
     path(
         "dashboard/<uuid:user_id>/ticket/update/<str:ticket_id>/",
         views.update_ticket,
@@ -78,10 +83,21 @@ urlpatterns = [
         views.ticket_category_list_view,
         name="ticket_category_list",
     ),
+    path(
+        "kategori-tiket/",
+        RedirectView.as_view(pattern_name="ticket_category_list", permanent=False),
+        name="kategori_tiket",
+    ),
     # Artist management (create/update/delete)
     path("artist/create/", views.create_artist, name="create_artist"),
     path("artist/update/<uuid:artist_id>/", views.update_artist, name="update_artist"),
     path("artist/delete/<uuid:artist_id>/", views.delete_artist, name="delete_artist"),
+    # Backwards-compatible reverse names (aliases)
+    path(
+        "manajemen-artis/",
+        RedirectView.as_view(pattern_name="artist_list", permanent=False),
+        name="manajemen_artis",
+    ),
     # Ticket category management (create/update/delete)
     path(
         "ticket-category/create/",
