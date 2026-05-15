@@ -1271,12 +1271,23 @@ def normalize_role(raw_role):
 
 def get_current_role(request):
     user_id = request.session.get("user_id")
-    if user_id:
-        return normalize_role(request.session.get("role") or get_role(user_id))
-    return normalize_role(request.GET.get("role", "customer"))
+
+    if not user_id:
+        return "guest"
+
+    return normalize_role(request.session.get("role") or get_role(user_id))
+
+def require_login(request):
+    if "user_id" not in request.session:
+        messages.error(request, "Silakan login terlebih dahulu.")
+        return False
+    return True
 
 
 def venue_list(request):
+    if not require_login(request):
+        return redirect("auth:login")
+
     role = get_current_role(request)
 
     search = request.GET.get("search", "").strip()
@@ -1508,6 +1519,9 @@ def format_event_obj(event):
 
 
 def event_list(request):
+    if not require_login(request):
+        return redirect("auth:login")
+
     search = request.GET.get("search", "").strip()
     venue_id = request.GET.get("venue", "").strip()
     artist_id = request.GET.get("artist", "").strip()
@@ -1596,16 +1610,16 @@ def admin_event_list(request):
 
 
 def my_event_list(request):
+    if not require_login(request):
+        return redirect("auth:login")
+
     user_id = request.session.get("user_id")
     role = get_current_role(request)
+    organizer = Organizer.objects.filter(user_id=user_id).first()
 
     if role != "organizer":
-        messages.error(
-            request, "Anda harus login sebagai organizer untuk mengakses halaman ini."
-        )
+        messages.error(request, "Anda harus login sebagai organizer untuk mengakses halaman ini.")
         return redirect("event_list")
-
-    organizer = Organizer.objects.filter(user_id=user_id).first()
 
     if not organizer:
         messages.error(request, "Data organizer tidak ditemukan.")
