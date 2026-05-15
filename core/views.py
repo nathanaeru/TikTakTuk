@@ -202,7 +202,7 @@ def ticket_category_list_view(request):
             """
             + base_from_sql
             + where_sql
-            + " ORDER BY e.event_title DESC, tc.category_name DESC",
+            + " ORDER BY e.event_title ASC, tc.category_name ASC",
             params,
         )
 
