@@ -37,27 +37,43 @@
   </div>
 </div>
 
-<div class="flex flex-col md:flex-row gap-4 mb-6">
+<form method="GET" class="flex flex-col md:flex-row gap-4 mb-6">
   <div class="flex-1">
     <input
+      name="search"
       type="text"
+      value="{{ request.GET.search }}"
       placeholder="Cari nama atau alamat..."
       class="w-full bg-dark-card border border-dark-border rounded-xl px-4 py-3 text-sm text-white placeholder-gray-500"
     />
   </div>
 
-  <select class="bg-dark-card border border-dark-border rounded-xl px-4 py-3 text-sm text-white">
-    <option>Semua Kota</option>
-    <option>Jakarta</option>
-    <option>Bandung</option>
+  <select name="city" onchange="this.form.submit()"
+    class="bg-dark-card border border-dark-border rounded-xl px-4 py-3 text-sm text-white">
+    <option value="">Semua Kota</option>
+    {% for city in cities %}
+      <option value="{{ city }}" {% if request.GET.city == city %}selected{% endif %}>
+        {{ city }}
+      </option>
+    {% endfor %}
   </select>
 
-  <select class="bg-dark-card border border-dark-border rounded-xl px-4 py-3 text-sm text-white">
-    <option>Semua Tipe Seating</option>
-    <option>Reserved Seating</option>
-    <option>Free Seating</option>
+  <select name="seating" onchange="this.form.submit()"
+    class="bg-dark-card border border-dark-border rounded-xl px-4 py-3 text-sm text-white">
+    <option value="">Semua Tipe Seating</option>
+    <option value="Reserved Seating" {% if request.GET.seating == "Reserved Seating" %}selected{% endif %}>
+      Reserved Seating
+    </option>
+    <option value="Free Seating" {% if request.GET.seating == "Free Seating" %}selected{% endif %}>
+      Free Seating
+    </option>
   </select>
-</div>
+
+  <button type="submit"
+    class="bg-primary hover:bg-primaryHover text-white px-5 py-3 rounded-xl text-sm font-semibold">
+    Cari
+  </button>
+</form>
 
   <div class="bg-dark-card border border-dark-border rounded-xl overflow-hidden">
     <table class="w-full text-sm table-fixed">
@@ -117,7 +133,7 @@
 
             <form method="POST" action="{% url 'delete_venue' venue.id %}" class="inline">
               {% csrf_token %}
-              <button class="bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded text-xs">
+              <button onclick="return confirm('Yakin ingin menghapus venue ini?')" class="bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded text-xs">
                 Hapus
               </button>
             </form>
@@ -126,7 +142,7 @@
         </tr>
         {% empty %}
         <tr>
-          <td colspan="5" class="px-6 py-8 text-center text-gray-400">
+          <td colspan="{% if role == 'admin' or role == 'organizer' %}5{% else %}4{% endif %}" class="px-6 py-8 text-center text-gray-400">
             Belum ada data venue.
           </td>
         </tr>
@@ -148,7 +164,7 @@
       {% csrf_token %}
       <div>
         <label class="block text-sm font-semibold mb-1">Nama Venue</label>
-        <input id="venue_name" name="venue_name" type="text" class="w-full border rounded-lg px-3 py-2" placeholder="Masukkan nama venue">
+        <input id="venue_name" name="venue_name" type="text" required class="w-full border rounded-lg px-3 py-2" placeholder="Masukkan nama venue">
       </div>
 
       <div>
@@ -159,12 +175,12 @@
       <div class="grid grid-cols-2 gap-4">
         <div>
           <label class="block text-sm font-semibold mb-1">Kota</label>
-          <input id="venue_city" name="city" type="text" class="w-full border rounded-lg px-3 py-2">
+          <input id="venue_city" name="city" type="text" required class="w-full border rounded-lg px-3 py-2">
         </div>
 
         <div>
           <label class="block text-sm font-semibold mb-1">Kapasitas</label>
-          <input id="venue_capacity" name="capacity" type="number" class="w-full border rounded-lg px-3 py-2">
+          <input id="venue_capacity" name="capacity" type="number" min="1" required class="w-full border rounded-lg px-3 py-2">
         </div>
       </div>
 
